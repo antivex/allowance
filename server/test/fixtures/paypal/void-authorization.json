@@ -1,0 +1,44 @@
+{
+  "name": "void-authorization",
+  "request": {
+    "method": "POST",
+    "path": "/v2/payments/authorizations/0VF52814937998046/void",
+    "headers": {
+      "Authorization": "REDACTED",
+      "Accept": "application/json",
+      "Prefer": "return=representation",
+      "PayPal-Request-Id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE-void"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "0VF52814937998046",
+      "status": "VOIDED",
+      "amount": {
+        "currency_code": "USD",
+        "value": "129.00"
+      },
+      "invoice_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+      "custom_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+      "seller_protection": {
+        "status": "ELIGIBLE"
+      },
+      "expiration_time": "2026-11-26T09:22:10Z",
+      "links": [
+        {
+          "href": "https://api-m.sandbox.paypal.com/v2/payments/authorizations/0VF52814937998046",
+          "rel": "self",
+          "method": "GET"
+        },
+        {
+          "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/8RU61172JS455403V",
+          "rel": "up",
+          "method": "GET"
+        }
+      ],
+      "create_time": "2026-10-28T09:22:10Z",
+      "update_time": "2026-10-28T09:26:02Z"
+    }
+  }
+}

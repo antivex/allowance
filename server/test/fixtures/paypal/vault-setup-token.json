@@ -1,0 +1,68 @@
+{
+  "name": "vault-setup-token",
+  "request": {
+    "method": "POST",
+    "path": "/v3/vault/setup-tokens",
+    "headers": {
+      "Authorization": "REDACTED",
+      "Accept": "application/json",
+      "Prefer": "return=representation",
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": "link_01JBX7A1B2C3D4E5F6G7H8J9K0"
+    },
+    "body": {
+      "payment_source": {
+        "paypal": {
+          "description": "Allowance: lets your AI agent pay within the rules you set",
+          "permit_multiple_payment_tokens": false,
+          "usage_pattern": "IMMEDIATE",
+          "usage_type": "MERCHANT",
+          "customer_type": "CONSUMER",
+          "experience_context": {
+            "brand_name": "Allowance",
+            "locale": "en-US",
+            "shipping_preference": "NO_SHIPPING",
+            "return_url": "http://localhost:4000/api/paypal/return",
+            "cancel_url": "http://localhost:4000/api/paypal/cancel"
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "5C991763VB2781612",
+      "customer": {
+        "id": "customer_4029352050"
+      },
+      "status": "PAYER_ACTION_REQUIRED",
+      "payment_source": {
+        "paypal": {
+          "description": "Allowance: lets your AI agent pay within the rules you set",
+          "usage_pattern": "IMMEDIATE",
+          "permit_multiple_payment_tokens": false,
+          "usage_type": "MERCHANT",
+          "customer_type": "CONSUMER"
+        }
+      },
+      "links": [
+        {
+          "href": "https://www.sandbox.paypal.com/agreements/approve?approval_session_id=5C991763VB2781612",
+          "rel": "approve",
+          "method": "GET"
+        },
+        {
+          "href": "https://api-m.sandbox.paypal.com/v3/vault/setup-tokens/5C991763VB2781612",
+          "rel": "self",
+          "method": "GET"
+        },
+        {
+          "href": "https://api-m.sandbox.paypal.com/v3/vault/payment-tokens",
+          "rel": "confirm",
+          "method": "POST"
+        }
+      ]
+    }
+  }
+}

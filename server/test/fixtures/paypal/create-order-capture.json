@@ -1,0 +1,189 @@
+{
+  "name": "create-order-capture",
+  "request": {
+    "method": "POST",
+    "path": "/v2/checkout/orders",
+    "headers": {
+      "Authorization": "REDACTED",
+      "Accept": "application/json",
+      "Prefer": "return=representation",
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D"
+    },
+    "body": {
+      "intent": "CAPTURE",
+      "purchase_units": [
+        {
+          "reference_id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D",
+          "custom_id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D",
+          "invoice_id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D",
+          "description": "Allowance agent purchase at Inkwell Supplies",
+          "amount": {
+            "currency_code": "USD",
+            "value": "38.97",
+            "breakdown": {
+              "item_total": {
+                "currency_code": "USD",
+                "value": "38.97"
+              }
+            }
+          },
+          "items": [
+            {
+              "name": "XL black ink cartridge, 2-pack",
+              "quantity": "1",
+              "unit_amount": {
+                "currency_code": "USD",
+                "value": "38.97"
+              },
+              "category": "PHYSICAL_GOODS"
+            }
+          ]
+        }
+      ],
+      "payment_source": {
+        "paypal": {
+          "vault_id": "8kk8451t"
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "5O190127TN364715T",
+      "intent": "CAPTURE",
+      "status": "COMPLETED",
+      "payment_source": {
+        "paypal": {
+          "email_address": "sb-buyer47@personal.example.com",
+          "account_id": "QYR5Z8XDVJNXQ",
+          "account_status": "VERIFIED",
+          "name": {
+            "given_name": "John",
+            "surname": "Doe"
+          },
+          "address": {
+            "country_code": "US"
+          },
+          "attributes": {
+            "vault": {
+              "id": "8kk8451t",
+              "customer": {
+                "id": "customer_4029352050"
+              }
+            }
+          }
+        }
+      },
+      "purchase_units": [
+        {
+          "reference_id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D",
+          "amount": {
+            "currency_code": "USD",
+            "value": "38.97",
+            "breakdown": {
+              "item_total": {
+                "currency_code": "USD",
+                "value": "38.97"
+              }
+            }
+          },
+          "payee": {
+            "email_address": "sb-merchant12@business.example.com",
+            "merchant_id": "C7CYMKZDG8D6E"
+          },
+          "description": "Allowance agent purchase at Inkwell Supplies",
+          "custom_id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D",
+          "invoice_id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D",
+          "items": [
+            {
+              "name": "XL black ink cartridge, 2-pack",
+              "quantity": "1",
+              "unit_amount": {
+                "currency_code": "USD",
+                "value": "38.97"
+              },
+              "category": "PHYSICAL_GOODS"
+            }
+          ],
+          "payments": {
+            "captures": [
+              {
+                "id": "3C679366HH908993F",
+                "status": "COMPLETED",
+                "amount": {
+                  "currency_code": "USD",
+                  "value": "38.97"
+                },
+                "final_capture": true,
+                "seller_protection": {
+                  "status": "ELIGIBLE",
+                  "dispute_categories": [
+                    "ITEM_NOT_RECEIVED",
+                    "UNAUTHORIZED_TRANSACTION"
+                  ]
+                },
+                "seller_receivable_breakdown": {
+                  "gross_amount": {
+                    "currency_code": "USD",
+                    "value": "38.97"
+                  },
+                  "paypal_fee": {
+                    "currency_code": "USD",
+                    "value": "1.85"
+                  },
+                  "net_amount": {
+                    "currency_code": "USD",
+                    "value": "37.12"
+                  }
+                },
+                "invoice_id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D",
+                "custom_id": "req_01JBX7K3M2Q8ZP4V6T9W0YRC1D",
+                "links": [
+                  {
+                    "href": "https://api-m.sandbox.paypal.com/v2/payments/captures/3C679366HH908993F",
+                    "rel": "self",
+                    "method": "GET"
+                  },
+                  {
+                    "href": "https://api-m.sandbox.paypal.com/v2/payments/captures/3C679366HH908993F/refund",
+                    "rel": "refund",
+                    "method": "POST"
+                  },
+                  {
+                    "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T",
+                    "rel": "up",
+                    "method": "GET"
+                  }
+                ],
+                "create_time": "2026-10-28T09:21:04Z",
+                "update_time": "2026-10-28T09:21:04Z"
+              }
+            ]
+          }
+        }
+      ],
+      "payer": {
+        "name": {
+          "given_name": "John",
+          "surname": "Doe"
+        },
+        "email_address": "sb-buyer47@personal.example.com",
+        "payer_id": "QYR5Z8XDVJNXQ",
+        "address": {
+          "country_code": "US"
+        }
+      },
+      "create_time": "2026-10-28T09:21:03Z",
+      "update_time": "2026-10-28T09:21:04Z",
+      "links": [
+        {
+          "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T",
+          "rel": "self",
+          "method": "GET"
+        }
+      ]
+    }
+  }
+}

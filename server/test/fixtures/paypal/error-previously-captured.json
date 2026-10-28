@@ -1,0 +1,34 @@
+{
+  "name": "void-authorization",
+  "request": {
+    "method": "POST",
+    "path": "/v2/payments/authorizations/0VF52814937998046/void",
+    "headers": {
+      "Authorization": "REDACTED",
+      "Accept": "application/json",
+      "Prefer": "return=representation",
+      "PayPal-Request-Id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE-void"
+    }
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "name": "UNPROCESSABLE_ENTITY",
+      "details": [
+        {
+          "issue": "PREVIOUSLY_CAPTURED",
+          "description": "Authorization has been previously captured and hence cannot be voided."
+        }
+      ],
+      "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
+      "debug_id": "f4b2a9c6d8e01",
+      "links": [
+        {
+          "href": "https://developer.paypal.com/docs/api/payments/v2/#error-PREVIOUSLY_CAPTURED",
+          "rel": "information_link",
+          "method": "GET"
+        }
+      ]
+    }
+  }
+}

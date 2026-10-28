@@ -1,0 +1,174 @@
+{
+  "name": "create-order-authorize",
+  "request": {
+    "method": "POST",
+    "path": "/v2/checkout/orders",
+    "headers": {
+      "Authorization": "REDACTED",
+      "Accept": "application/json",
+      "Prefer": "return=representation",
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE"
+    },
+    "body": {
+      "intent": "AUTHORIZE",
+      "purchase_units": [
+        {
+          "reference_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+          "custom_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+          "invoice_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+          "description": "Allowance agent purchase at Northline Office",
+          "amount": {
+            "currency_code": "USD",
+            "value": "129.00",
+            "breakdown": {
+              "item_total": {
+                "currency_code": "USD",
+                "value": "129.00"
+              }
+            }
+          },
+          "items": [
+            {
+              "name": "Ergonomic mesh desk chair",
+              "quantity": "1",
+              "unit_amount": {
+                "currency_code": "USD",
+                "value": "129.00"
+              },
+              "category": "PHYSICAL_GOODS"
+            }
+          ]
+        }
+      ],
+      "payment_source": {
+        "paypal": {
+          "vault_id": "8kk8451t"
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "8RU61172JS455403V",
+      "intent": "AUTHORIZE",
+      "status": "COMPLETED",
+      "payment_source": {
+        "paypal": {
+          "email_address": "sb-buyer47@personal.example.com",
+          "account_id": "QYR5Z8XDVJNXQ",
+          "account_status": "VERIFIED",
+          "name": {
+            "given_name": "John",
+            "surname": "Doe"
+          },
+          "address": {
+            "country_code": "US"
+          },
+          "attributes": {
+            "vault": {
+              "id": "8kk8451t",
+              "customer": {
+                "id": "customer_4029352050"
+              }
+            }
+          }
+        }
+      },
+      "purchase_units": [
+        {
+          "reference_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+          "amount": {
+            "currency_code": "USD",
+            "value": "129.00",
+            "breakdown": {
+              "item_total": {
+                "currency_code": "USD",
+                "value": "129.00"
+              }
+            }
+          },
+          "payee": {
+            "email_address": "sb-merchant12@business.example.com",
+            "merchant_id": "C7CYMKZDG8D6E"
+          },
+          "description": "Allowance agent purchase at Northline Office",
+          "custom_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+          "invoice_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+          "items": [
+            {
+              "name": "Ergonomic mesh desk chair",
+              "quantity": "1",
+              "unit_amount": {
+                "currency_code": "USD",
+                "value": "129.00"
+              },
+              "category": "PHYSICAL_GOODS"
+            }
+          ],
+          "payments": {
+            "authorizations": [
+              {
+                "id": "0VF52814937998046",
+                "status": "CREATED",
+                "amount": {
+                  "currency_code": "USD",
+                  "value": "129.00"
+                },
+                "invoice_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+                "custom_id": "req_01JBX7M8R5T2YQ6N3P0VWK4HZE",
+                "seller_protection": {
+                  "status": "ELIGIBLE",
+                  "dispute_categories": [
+                    "ITEM_NOT_RECEIVED",
+                    "UNAUTHORIZED_TRANSACTION"
+                  ]
+                },
+                "expiration_time": "2026-11-26T09:22:10Z",
+                "links": [
+                  {
+                    "href": "https://api-m.sandbox.paypal.com/v2/payments/authorizations/0VF52814937998046",
+                    "rel": "self",
+                    "method": "GET"
+                  },
+                  {
+                    "href": "https://api-m.sandbox.paypal.com/v2/payments/authorizations/0VF52814937998046/capture",
+                    "rel": "capture",
+                    "method": "POST"
+                  },
+                  {
+                    "href": "https://api-m.sandbox.paypal.com/v2/payments/authorizations/0VF52814937998046/void",
+                    "rel": "void",
+                    "method": "POST"
+                  },
+                  {
+                    "href": "https://api-m.sandbox.paypal.com/v2/payments/authorizations/0VF52814937998046/reauthorize",
+                    "rel": "reauthorize",
+                    "method": "POST"
+                  },
+                  {
+                    "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/8RU61172JS455403V",
+                    "rel": "up",
+                    "method": "GET"
+                  }
+                ],
+                "create_time": "2026-10-28T09:22:10Z",
+                "update_time": "2026-10-28T09:22:10Z"
+              }
+            ]
+          }
+        }
+      ],
+      "create_time": "2026-10-28T09:22:09Z",
+      "update_time": "2026-10-28T09:22:10Z",
+      "links": [
+        {
+          "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/8RU61172JS455403V",
+          "rel": "self",
+          "method": "GET"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "oauth-token",
+  "request": {
+    "method": "POST",
+    "path": "/v1/oauth2/token",
+    "headers": {},
+    "body": "grant_type=client_credentials"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "scope": "https://uri.paypal.com/services/payments/payment/authcapture openid https://uri.paypal.com/services/vault/payment-tokens/readwrite",
+      "access_token": "REDACTED",
+      "token_type": "Bearer",
+      "app_id": "APP-80W284485P519543T",
+      "expires_in": 32400,
+      "nonce": "2026-10-28T09:20:11ZpX3pS0bE5o1hqWc8K2n0eZ6t2l4T0xR8Jq3cVb5mN1o"
+    }
+  }
+}

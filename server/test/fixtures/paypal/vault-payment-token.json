@@ -1,0 +1,63 @@
+{
+  "name": "vault-payment-token",
+  "request": {
+    "method": "POST",
+    "path": "/v3/vault/payment-tokens",
+    "headers": {
+      "Authorization": "REDACTED",
+      "Accept": "application/json",
+      "Prefer": "return=representation",
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": "link_01JBX7A1B2C3D4E5F6G7H8J9K1"
+    },
+    "body": {
+      "payment_source": {
+        "token": {
+          "id": "5C991763VB2781612",
+          "type": "SETUP_TOKEN"
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "8kk8451t",
+      "customer": {
+        "id": "customer_4029352050"
+      },
+      "payment_source": {
+        "paypal": {
+          "description": "Allowance: lets your AI agent pay within the rules you set",
+          "usage_pattern": "IMMEDIATE",
+          "shipping": {
+            "name": {
+              "full_name": "John Doe"
+            }
+          },
+          "permit_multiple_payment_tokens": false,
+          "usage_type": "MERCHANT",
+          "customer_type": "CONSUMER",
+          "email_address": "sb-buyer47@personal.example.com",
+          "payer_id": "QYR5Z8XDVJNXQ",
+          "name": {
+            "given_name": "John",
+            "surname": "Doe"
+          }
+        }
+      },
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://api-m.sandbox.paypal.com/v3/vault/payment-tokens/8kk8451t",
+          "method": "GET"
+        },
+        {
+          "rel": "delete",
+          "href": "https://api-m.sandbox.paypal.com/v3/vault/payment-tokens/8kk8451t",
+          "method": "DELETE"
+        }
+      ]
+    }
+  }
+}
