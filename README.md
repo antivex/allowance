@@ -146,8 +146,8 @@ flowchart LR
 - **Default model**: [Qwen3.5 4B](https://ollama.com/library/qwen3.5) through Ollama, so nothing leaves your machine. Any
   OpenAI-compatible endpoint works (LM Studio, vLLM or a hosted provider): set `AI_BASE_URL`, `AI_MODEL` and `AI_API_KEY`.
 - **Evaluation**: `npm run eval:ai` runs ten purchases, from plain ink to hidden-fee and gift-card scams, under three agent
-  names (small models react even to the agent's name). On 28 Oct 2026 `qwen3.5:4b` gave the expected verdict in 29 of 30
-  reviews; the miss was 400 sticky notes bought for "a pack", approved under one name.
+  names (small models react even to the agent's name). On 4 Nov 2026 `qwen3.5:4b` gave the expected verdict in all 30
+  reviews. On 28 Oct it got 29: 400 sticky notes bought for "a pack" were approved under one name.
 - **Built with** [Claude Code](https://claude.com/claude-code) (Claude Opus 5.5) as the coding assistant.
 
 ## The demo
