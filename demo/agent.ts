@@ -241,7 +241,7 @@ async function main(): Promise<void> {
       source_url: url,
       items,
       amount: round(product.price + product.shipping),
-      reason: `The owner asked: "${errand.ask}"`,
+      reason: `Errand from the owner: ${errand.ask}`,
     });
     await followHiddenNote(client, results, product);
   }
@@ -251,8 +251,14 @@ async function main(): Promise<void> {
     console.log(`\n${bold('Waiting for the owner')} ${dim(`to approve or deny ${held.length} held purchase${held.length === 1 ? '' : 's'} at ${ALLOWANCE_URL}`)}`);
     for (const result of held) {
       result.outcome = await waitForOwner(client, result.outcome.request_id);
-      console.log(`    ${result.label}:`);
-      show(result.outcome);
+      const { status, amount, currency } = result.outcome;
+      const answer =
+        status === 'paid'
+          ? green('✓ PAID: the owner approved it, PayPal captured the hold')
+          : status === 'denied'
+            ? red('✕ DENIED by the owner: PayPal voided the hold, nothing was charged')
+            : yellow(`still ${status.replace('_', ' ')}`);
+      console.log(`    ${result.label}: ${bold(answer)}  ${amount} ${currency}`);
     }
   }
   report(results);

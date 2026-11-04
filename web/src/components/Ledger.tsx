@@ -180,7 +180,7 @@ export function Ledger({ rows, context, onOpen }: Props) {
       {
         headerName: 'Time',
         field: 'createdAt',
-        width: 100,
+        width: 112,
         sort: 'desc',
         valueFormatter: (p) => (p.node?.rowPinned ? '' : p.value ? formatTime(p.value as string) : ''),
         // The CSV gets the full ISO timestamp, not just the time of day.
@@ -191,7 +191,7 @@ export function Ledger({ rows, context, onOpen }: Props) {
       {
         headerName: 'Purchase',
         field: 'merchant',
-        minWidth: 176,
+        minWidth: 170,
         flex: 1.2,
         cellRenderer: MerchantCell,
         tooltipValueGetter: (p) => (p.node?.rowPinned ? '' : `${p.data?.merchant ?? ''}: ${itemsText(p.data)}`),

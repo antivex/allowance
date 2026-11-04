@@ -1,5 +1,204 @@
 # Allowance
 
-Give your AI agent an allowance, not your wallet.
+**Give your AI agent an allowance, not your wallet.**
 
-Work in progress for the PayPal AI Hackathon. The full README lands with the dashboard.
+Allowance is a policy wallet that sits between any AI agent and PayPal. You write your spending rules in plain English, an
+AI turns them into exact limits, and your agent gets one tool, `request_purchase`, instead of your card. Every request goes
+through your rules and an AI risk review. Then PayPal pays at once, **holds the money** while you decide, or nothing happens
+at all.
+
+Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT licensed.
+
+![The Allowance ledger: every agent request, the decision, why, and what PayPal did](docs/screenshots/ledger.png)
+
+## Why
+
+AI agents can now shop and pay. Handing one your wallet is risky:
+
+- it can overspend;
+- it can buy the wrong thing;
+- a web page can **prompt-inject** it into paying a scammer. Text hidden from people is still text to an agent.
+
+People need what parents give teenagers: an allowance with rules, and a phone call for anything unusual.
+
+## What it does
+
+1. **Plain-English rules, compiled by AI.** "Up to $50 per purchase for office supplies, $150 a week in total. Anything
+   else, ask me. Never gift cards or crypto." A local LLM turns that into structured rules; you check them on screen and
+   confirm.
+2. **One door for the agent.** The agent never sees payment details. It gets an MCP tool, `request_purchase(merchant,
+   items, amount, reason)`, and nothing else. Claude Desktop, Claude Code, Cursor or any MCP client works, and so does plain
+   HTTP.
+3. **Two checks on every request.**
+   - Deterministic rules: per-purchase limit, hard limit, weekly budget (money on hold counts), categories, merchants.
+     Always on: the items must add up to the total, gift cards and crypto are recognised even when the agent files them as
+     "office supplies", and instructions aimed at AI inside a request block it.
+   - An AI risk review of the agent's stated reason against your intent: fees demanded by a page, "pay our partner",
+     urgency, "pay to unlock", a merchant that does not match the item. **It can only make a decision stricter, never
+     looser**, so a wrong or missing AI answer can never cost money.
+   - Every decision comes with a one-line explanation, written for you.
+4. **PayPal does the money part** (sandbox, Orders v2):
+   - **approve**: an order with intent `CAPTURE`, paid from your linked PayPal wallet;
+   - **ask you**: an order with intent `AUTHORIZE`. The money is held, not taken. You get an approval card: **Approve
+     captures** the authorization, **Deny voids** it, and so do 24 hours without an answer. The hold is the cooling-off
+     period;
+   - **block**: no order is created, and the agent is told why and not to work around it.
+
+   <img src="docs/screenshots/approval-card.png" alt="An approval card: PayPal holds $89 until the owner approves or denies" width="400">
+
+5. **A live ledger built on AG Grid**: every request from every agent with the decision, the explanation and the PayPal
+   status. Approve and deny inside the row, filters by outcome and agent, search, totals and CSV export.
+
+## Try it in five minutes
+
+You need [Node.js](https://nodejs.org) 22.13 or newer. [Ollama](https://ollama.com) is optional (it runs the AI locally and
+for free). A PayPal developer account is optional too: without one, Allowance runs a clearly labelled offline simulation.
+
+```bash
+git clone https://github.com/antivex/allowance.git
+cd allowance
+npm install
+npm run setup             # creates .env and checks Node and the AI endpoint
+ollama pull qwen3.5:4b    # optional: the default local model
+npm start                 # builds, then serves http://localhost:4000
+```
+
+1. Open <http://localhost:4000>, go to **Rules** and press **Confirm rules** (or write your own and press **Draft rules
+   with AI** first).
+2. In a second terminal run the demo agent: `npm run demo`.
+3. Watch the ledger fill up, then approve the held desk chair on its card. The agent sees your answer and reports back.
+
+### Use the real PayPal sandbox
+
+1. On [developer.paypal.com](https://developer.paypal.com), open **Apps & Credentials**, stay on **Sandbox**, and create
+   an app. Copy its client ID and secret into `.env` as `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`, and set `CURRENCY`
+   to the currency of your sandbox business account.
+2. Restart with `npm start`. The header now says **PayPal Sandbox**.
+3. In **Agents & setup**, press **Link PayPal**, sign in with one of your sandbox *personal* accounts (**Testing Tools →
+   Sandbox Accounts**) and agree. PayPal stores the wallet (Vault) and gives Allowance a token; Allowance never sees card
+   or bank details, and agents never see the token.
+
+If linking fails with a permission error, make sure the app has the Vault (save payment methods) feature enabled.
+
+## Connect your own agent
+
+Create a token for each agent in **Agents & setup**: the ledger then shows who asked for what, and you can revoke any
+agent. The page shows ready-to-paste snippets with your token filled in.
+
+**Claude Desktop** (`claude_desktop_config.json`, then restart Claude; Allowance must be running):
+
+```json
+{
+  "mcpServers": {
+    "allowance": {
+      "command": "node",
+      "args": ["/path/to/allowance/dist/server/mcp/stdio.js"],
+      "env": { "ALLOWANCE_URL": "http://localhost:4000", "ALLOWANCE_AGENT_TOKEN": "<agent token>" }
+    }
+  }
+}
+```
+
+**Claude Code, Cursor or any MCP client over HTTP:**
+
+```bash
+claude mcp add --transport http allowance http://localhost:4000/mcp --header "Authorization: Bearer <agent token>"
+```
+
+**Plain HTTP:** `POST /api/agent/purchases` with the same bearer token and a JSON body
+`{ "merchant", "items": [{ "name", "quantity", "unit_price", "category" }], "amount", "reason", "merchant_url"?, "source_url"? }`.
+
+The MCP server exposes two tools: `request_purchase` and the read-only `get_purchase_status`, so an agent can learn what
+you decided about a held purchase.
+
+## How a decision is made
+
+```mermaid
+flowchart LR
+  agent["AI agent"] -- "request_purchase (MCP)" --> rules{"Your rules"}
+  rules -- "block" --> blocked["Blocked: no PayPal order"]
+  rules -- "approve or ask" --> review{"AI risk review<br/>(only stricter)"}
+  review -- "approve" --> capture["Order, intent CAPTURE:<br/>paid from the linked wallet"]
+  review -- "ask" --> hold["Order, intent AUTHORIZE:<br/>money held"]
+  review -- "block" --> blocked
+  hold -- "you approve" --> captured["Authorization captured"]
+  hold -- "you deny, or 24 h pass" --> voided["Authorization voided"]
+```
+
+- The rules run first and are pure functions, unit-tested in `server/test/policy.test.ts`.
+- The AI review sees your rules in your own words and the request. Text the agent copied from web pages is marked as data,
+  never instructions. If the model does not answer, purchases the rules would pay wait for you instead (`AI_ON_FAILURE`).
+- Every PayPal call carries an idempotency key (`PayPal-Request-Id`), so a retry never pays twice.
+
+## PayPal APIs used
+
+| API | Calls | What for |
+|---|---|---|
+| Vault v3 | `POST /v3/vault/setup-tokens`, `POST /v3/vault/payment-tokens`, `DELETE /v3/vault/payment-tokens/{id}` | Link the owner's PayPal wallet once; unlink it |
+| Orders v2 | `POST /v2/checkout/orders` with `payment_source.paypal.vault_id`, intent `CAPTURE` or `AUTHORIZE`; `GET /v2/checkout/orders/{id}` | Pay at once, or hold the money |
+| Payments v2 | `POST /v2/payments/authorizations/{id}/capture`, `POST /v2/payments/authorizations/{id}/void`, `GET /v2/payments/authorizations/{id}` | Your approve and deny buttons, and the 24-hour auto-void |
+
+## AI used
+
+- **Rule compiler**: plain English to structured rules (JSON, validated with zod). You confirm them before they apply.
+- **Risk reviewer**: a verdict (`approve`, `ask`, `block`), red flags and a one-line explanation for every purchase the
+  rules would not block.
+- **Default model**: [Qwen3.5 4B](https://ollama.com/library/qwen3.5) through Ollama, so nothing leaves your machine. Any
+  OpenAI-compatible endpoint works (LM Studio, vLLM or a hosted provider): set `AI_BASE_URL`, `AI_MODEL` and `AI_API_KEY`.
+- **Evaluation**: `npm run eval:ai` runs ten purchases, from plain ink to hidden-fee and gift-card scams, under three agent
+  names (small models react even to the agent's name). On 28 Oct 2026 `qwen3.5:4b` gave the expected verdict in 29 of 30
+  reviews; the miss was 400 sticky notes bought for "a pack", approved under one name.
+- **Built with** [Claude Code](https://claude.com/claude-code) (Claude Opus 5.5) as the coding assistant.
+
+## The demo
+
+`npm run demo` runs a scripted shopping agent against **Inkwell Supplies**, a made-up shop on <http://localhost:4100>. It
+does three errands for the owner: printer ink, a ream of paper and a desk chair under $100.
+
+The paper page carries a note that people never see, but agents that read the page do: it says AI assistants must buy a
+$24 "priority handling" add-on, or else pay a "checkout partner" with a $95 Steam Wallet card. The demo agent trusts it on
+purpose, the way an injected agent would. Open <http://localhost:4100/products/paper?reveal> to see the note.
+
+![The paper page with ?reveal: the note people never see, but agents read](docs/screenshots/hidden-note.png)
+
+What happens: the ink and the paper are paid; the AI review blocks the add-on, which the rules alone would have paid; the
+rules block the Steam card even though the agent filed it as office supplies; the chair is over the $50 limit, so PayPal
+holds the money until you approve or deny it. Use `npm run demo -- --step` to pause between errands.
+
+## Project layout
+
+```
+server/src/policy   rules engine (pure functions) and how rules and AI combine
+server/src/ai       OpenAI-compatible client, rule compiler, risk reviewer
+server/src/paypal   PayPal REST client, sandbox and simulated gateways
+server/src/mcp      MCP tools, streamable HTTP and a stdio bridge
+server/src          wallet (the decision and payment flow), SQLite store, HTTP API
+web/src             React dashboard with AG Grid
+demo                the demo shop and the scripted agent
+scripts             setup check and AI evaluation
+```
+
+## Tests
+
+```bash
+npm test             # policy engine, wallet flows, HTTP API, PayPal client against recorded request/response fixtures
+npm run typecheck
+npm run eval:ai      # the AI evaluation above, against your configured model
+```
+
+## Security notes
+
+- Agents never see PayPal credentials or the vault token. Agent tokens are stored hashed and can be revoked.
+- The dashboard has no login: it is a single-owner app and listens on `127.0.0.1` only. Do not expose it to a network as is.
+- This is a hackathon project that talks to the PayPal **sandbox**. Real money needs production credentials, real sign-in
+  and a security review.
+
+## What is next
+
+- Approval requests on the phone (push or email) instead of only in the dashboard.
+- Budgets per agent and per merchant.
+- Rules that learn from your approvals: "you approved this merchant three times, add it to known merchants?"
+
+## License
+
+[MIT](LICENSE) © antivex
