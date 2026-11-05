@@ -44,4 +44,4 @@ try {
   console.log('    Allowance still works without it: purchases the rules would approve wait for you instead.');
 }
 
-console.log('\nNext: npm start, then open http://localhost:4000');
+console.log('\nNext: npm start, then open the one-time link it prints to choose the owner password.');
