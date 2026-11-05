@@ -32,7 +32,8 @@ export function timeAgo(iso: string, now: number = Date.now()): string {
 export function timeLeft(iso: string, now: number = Date.now()): string {
   const ms = new Date(iso).getTime() - now;
   if (ms <= 0) return 'releasing now';
-  const minutes = Math.ceil(ms / 60_000);
+  // Rounded down, like a countdown: a hold of 24 hours reads 23 h 59 min, never 24 h 1 min on a clock a little behind.
+  const minutes = Math.max(1, Math.floor(ms / 60_000));
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;

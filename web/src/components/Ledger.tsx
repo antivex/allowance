@@ -185,7 +185,7 @@ export function Ledger({ rows, context, onOpen }: Props) {
         valueFormatter: (p) => (p.node?.rowPinned ? '' : p.value ? formatTime(p.value as string) : ''),
         // The CSV gets the full ISO timestamp, not just the time of day.
         useValueFormatterForExport: false,
-        tooltipValueGetter: (p) => (p.value ? new Date(p.value as string).toLocaleString() : ''),
+        tooltipValueGetter: (p) => (p.value ? new Date(p.value as string).toLocaleString('en-US') : ''),
       },
       { headerName: 'Agent', field: 'agentName', width: 170, tooltipField: 'agentName' },
       {
