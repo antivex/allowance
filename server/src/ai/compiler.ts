@@ -142,9 +142,19 @@ export class RulesCompiler {
   }
 }
 
-/** The example rules from the README, used before the owner writes their own. */
-export const EXAMPLE_RULES_TEXT =
-  'Up to $50 per purchase for office supplies, $150 a week in total. Anything else, ask me. Never gift cards or crypto.';
+const SYMBOLS: Record<string, string> = { USD: '$', EUR: '€', GBP: '£' };
+
+/** The example rules from the README, in the wallet's currency, used before the owner writes their own. */
+export function exampleRulesText(currency: string): string {
+  const symbol = SYMBOLS[currency] ?? `${currency} `;
+  return `Up to ${symbol}50 per purchase for office supplies, ${symbol}150 a week in total. Anything else, ask me. Never gift cards or crypto.`;
+}
+
+export function exampleRules(currency: string): Rules {
+  return { ...EXAMPLE_RULES, currency };
+}
+
+export const EXAMPLE_RULES_TEXT = exampleRulesText('USD');
 
 export const EXAMPLE_RULES: Rules = {
   currency: 'USD',

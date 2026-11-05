@@ -37,13 +37,15 @@ if (config.paypal) {
   let sequence = 0;
   const recordDir = config.paypal.recordDir;
   if (recordDir) mkdirSync(recordDir, { recursive: true });
+  // Each server run gets its own prefix, so a restart never overwrites the previous run's exchanges.
+  const run = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
   const client = new PayPalClient({
     clientId: config.paypal.clientId,
     clientSecret: config.paypal.clientSecret,
     onExchange: recordDir
       ? (exchange) => {
           sequence += 1;
-          const file = join(recordDir, `${String(sequence).padStart(3, '0')}-${exchange.name}.json`);
+          const file = join(recordDir, `${run}-${String(sequence).padStart(3, '0')}-${exchange.name}.json`);
           writeFileSync(file, `${JSON.stringify(exchange, null, 2)}\n`);
         }
       : undefined,
@@ -100,7 +102,7 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 });
 
 if (config.shopPort) {
-  createShopApp(join(root, 'demo', 'shop'))
+  createShopApp(join(root, 'demo', 'shop'), config.currency)
     .listen(config.shopPort, config.host)
     .on('error', (error: NodeJS.ErrnoException) => {
       console.error(`Demo shop not started (${error.code ?? error.message}).`);

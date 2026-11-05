@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, api } from './api';
 import { ApprovalCards } from './components/ApprovalCards';
 import { Kpis } from './components/Kpis';
@@ -10,7 +10,10 @@ import { Logo, PayPalWord } from './components/ui';
 import { formatMoney } from './format';
 import type { AppState, Purchase } from './types';
 
-type Tab = 'ledger' | 'rules' | 'setup';
+// AG Studio is most of the bundle's weight: it loads only when the Insights tab opens.
+const Insights = lazy(() => import('./components/Insights').then((module) => ({ default: module.Insights })));
+
+type Tab = 'ledger' | 'insights' | 'rules' | 'setup';
 interface Toast {
   id: number;
   message: string;
@@ -190,6 +193,9 @@ export function App() {
         <button type="button" role="tab" aria-selected={tab === 'ledger'} className={`tab ${tab === 'ledger' ? 'active' : ''}`} onClick={() => setTab('ledger')}>
           Ledger {waiting.length > 0 && <span className="count">{waiting.length}</span>}
         </button>
+        <button type="button" role="tab" aria-selected={tab === 'insights'} className={`tab ${tab === 'insights' ? 'active' : ''}`} onClick={() => setTab('insights')}>
+          Insights
+        </button>
         <button type="button" role="tab" aria-selected={tab === 'rules'} className={`tab ${tab === 'rules' ? 'active' : ''}`} onClick={() => setTab('rules')}>
           Rules
         </button>
@@ -238,6 +244,11 @@ export function App() {
         </>
       )}
       {tab === 'rules' && <RulesPage key={state.rules?.id ?? 'none'} state={state} notify={notify} />}
+      {tab === 'insights' && (
+        <Suspense fallback={<div className="empty">Loading insights…</div>}>
+          <Insights rows={rows} />
+        </Suspense>
+      )}
       {tab === 'setup' && <SetupPage state={state} notify={notify} />}
 
       <footer className="footer">

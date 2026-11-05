@@ -72,13 +72,18 @@ npm start                 # builds, then serves http://localhost:4000
 
 1. On [developer.paypal.com](https://developer.paypal.com), open **Apps & Credentials**, stay on **Sandbox**, and create
    an app. Copy its client ID and secret into `.env` as `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`, and set `CURRENCY`
-   to the currency of your sandbox business account.
+   to the currency of your sandbox business account (EUR for an Italian one, for example): the example rules and the
+   demo shop follow it.
 2. Restart with `npm start`. The header now says **PayPal Sandbox**.
 3. In **Agents & setup**, press **Link PayPal**, sign in with one of your sandbox *personal* accounts (**Testing Tools →
    Sandbox Accounts**) and agree. PayPal stores the wallet (Vault) and gives Allowance a token; Allowance never sees card
    or bank details, and agents never see the token.
+4. Confirm the rules, then run `npm run proof:sandbox`. It sends four purchases as an agent and plays the owner: one paid
+   at once, one blocked, one held and approved (captured), one held and denied (voided). It writes
+   [docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md) with the ids PayPal returned; ours is in the repo.
 
-If linking fails with a permission error, make sure the app has the Vault (save payment methods) feature enabled.
+If linking fails with a permission error, make sure the app has the Vault (save payment methods) feature enabled. Set
+`PAYPAL_RECORD_DIR` to keep every PayPal request and response of a run, with credentials redacted.
 
 ## Connect your own agent
 
@@ -175,7 +180,8 @@ With the test agent, the ink and the paper are paid. The AI review blocks the ad
 paid. The rules block the gift card even though the agent filed it as office supplies. The chair is over the $50 limit,
 so PayPal holds the money until you approve or deny it. In our runs the real model read the note and ignored it; nobody
 can tell in advance which agent will be fooled, which is why the limits live in the wallet and not in the agent. Add
-`--step` to pause between errands.
+`--step` to pause between errands. `npm run demo:reset` (with Allowance stopped) empties the ledger and keeps the linked
+wallet, the rules and the agents.
 
 ## Project layout
 

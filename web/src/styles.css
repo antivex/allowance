@@ -787,6 +787,13 @@ code,
   color: var(--muted);
 }
 
+/* AG Studio fills its parent, so the parent needs a height. */
+.insights {
+  height: calc(100vh - 190px);
+  min-height: 640px;
+  overflow: hidden;
+}
+
 /* ---------- Drawer ---------- */
 
 .drawer-backdrop {

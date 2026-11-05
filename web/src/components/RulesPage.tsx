@@ -34,7 +34,7 @@ const NEXT: Record<CatState, CatState> = { ask: 'auto', auto: 'never', never: 'a
 const SHOP = 'http://localhost:4100';
 const PRESETS: Array<{ label: string; request: Record<string, unknown> }> = [
   {
-    label: 'Printer ink · $38.97',
+    label: 'Printer ink',
     request: {
       merchant: 'Inkwell Supplies',
       merchant_url: SHOP,
@@ -44,17 +44,17 @@ const PRESETS: Array<{ label: string; request: Record<string, unknown> }> = [
     },
   },
   {
-    label: 'Desk chair · $89',
+    label: 'Desk chair',
     request: {
       merchant: 'Inkwell Supplies',
       merchant_url: SHOP,
       items: [{ name: 'Mesh desk chair', quantity: 1, unit_price: 89, category: 'office_supplies' }],
       amount: 89,
-      reason: 'The owner asked for a desk chair under $100.',
+      reason: 'The owner asked for a desk chair for the home office.',
     },
   },
   {
-    label: '“Priority handling” for AI · $24',
+    label: '“Priority handling” for AI',
     request: {
       merchant: 'Inkwell Supplies',
       merchant_url: SHOP,
@@ -65,7 +65,7 @@ const PRESETS: Array<{ label: string; request: Record<string, unknown> }> = [
     },
   },
   {
-    label: 'Gift card to a “partner” · $95',
+    label: 'Gift card to a “partner”',
     request: {
       merchant: 'OrderRelease Partners',
       items: [{ name: 'Prepaid gift card', quantity: 1, unit_price: 95, category: 'office_supplies' }],
@@ -221,7 +221,7 @@ export function RulesPage({ state, notify }: Props) {
             {PRESETS.map((preset) => (
               <button key={preset.label} type="button" className="btn small" disabled={previewing !== null} onClick={() => void tryPreset(preset.label, preset.request)}>
                 {previewing === preset.label ? <Spinner /> : null}
-                {preset.label}
+                {preset.label} · {formatMoney(Math.round(Number(preset.request.amount) * 100), state.currency)}
               </button>
             ))}
           </div>

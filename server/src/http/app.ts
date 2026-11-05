@@ -5,7 +5,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { ChatClient } from '../ai/chat.js';
-import { EXAMPLE_RULES, EXAMPLE_RULES_TEXT, describeRules, normalizeRules, type RulesCompiler } from '../ai/compiler.js';
+import { describeRules, exampleRules, exampleRulesText, normalizeRules, type RulesCompiler } from '../ai/compiler.js';
 import type { Config } from '../config.js';
 import type { EventBus } from '../events.js';
 import { createMcpServer, type PurchaseApi } from '../mcp/tools.js';
@@ -134,7 +134,7 @@ export function createApp(deps: AppDeps): express.Express {
       wallet: { ...wallet.linkState(), lastError: linkError },
       ai: { enabled: Boolean(chat), model: config.ai.model, baseUrl: config.ai.baseUrl, onFailure: config.ai.onFailure, ...(await health()) },
       rules: record ? { ...record, summary: describeRules(record.rules) } : null,
-      example: { text: EXAMPLE_RULES_TEXT, rules: EXAMPLE_RULES, summary: describeRules(EXAMPLE_RULES) },
+      example: { text: exampleRulesText(config.currency), rules: exampleRules(config.currency), summary: describeRules(exampleRules(config.currency)) },
       budget: wallet.budget(),
       agents: store.listAgents().filter((agent) => !agent.revokedAt),
       mcp: { httpUrl: `${config.publicUrl}/mcp`, stdioEntry: deps.stdioEntry, nodePath: process.execPath, serverUrl: config.publicUrl },
