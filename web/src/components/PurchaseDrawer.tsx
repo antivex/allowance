@@ -55,13 +55,19 @@ function PayPalCheckRow({ purchaseId }: { purchaseId: string }) {
 
 export function PurchaseDrawer({ purchase, now, onClose, onApprove, onDeny }: Props) {
   const [events, setEvents] = useState<PurchaseEvent[]>([]);
+  const [cartMandate, setCartMandate] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const money = (cents: number) => formatMoney(cents, purchase.currency);
 
   useEffect(() => {
     let alive = true;
     api
       .purchase(purchase.id)
-      .then((detail) => alive && setEvents(detail.events))
+      .then((detail) => {
+        if (!alive) return;
+        setEvents(detail.events);
+        setCartMandate(detail.cartMandate ?? null);
+      })
       .catch(() => alive && setEvents([]));
     return () => {
       alive = false;
@@ -238,6 +244,24 @@ export function PurchaseDrawer({ purchase, now, onClose, onApprove, onDeny }: Pr
               <div style={{ color: 'var(--muted)' }}>{purchase.status === 'blocked' ? 'No PayPal order was created.' : 'Nothing was sent to PayPal.'}</div>
             )}
             {purchase.paypalOrderId && purchase.paypalMode === 'sandbox' && <PayPalCheckRow key={purchase.updatedAt} purchaseId={purchase.id} />}
+            {cartMandate && (
+              <div className="notice ok mandate-row">
+                <strong>✓ Signed cart.</strong> This exact cart, signed by your Allowance (Ed25519): the agent can show it to the merchant,
+                and anyone can check it against <code>/.well-known/jwks.json</code>. Its id is the PayPal order's invoice id.
+                <div className="mandate-actions">
+                  <code className="mandate-jws">{cartMandate.slice(0, 42)}…</code>
+                  <button
+                    type="button"
+                    className="btn small"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(cartMandate).then(() => setCopied(true));
+                    }}
+                  >
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            )}
             {purchase.error && (
               <div className="notice bad" style={{ marginTop: 8 }}>
                 {purchase.error}

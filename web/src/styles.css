@@ -1599,3 +1599,7 @@ code,
 
 .category-limits { display: grid; gap: 6px; }
 .category-limit-name { min-width: 120px; font-size: 13px; }
+
+.mandate-row { margin-top: 8px; }
+.mandate-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.mandate-jws { font-size: 11px; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

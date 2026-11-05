@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { verifyMandate, type CartMandate, type IntentMandate, type PublicJwk } from '../server/src/mandate.js';
 import type { PurchaseRequest } from '../server/src/policy/types.js';
 import type { PurchaseOutcome } from '../server/src/wallet.js';
 
@@ -166,6 +167,24 @@ async function callTool(client: Client, name: string, args: Record<string, unkno
   return outcome;
 }
 
+/** The keys that check Allowance's signed mandates, fetched once, the way a merchant would. */
+let jwks: { keys: PublicJwk[] } | null = null;
+async function publicKeys(): Promise<{ keys: PublicJwk[] }> {
+  jwks ??= (await (await fetch(`${ALLOWANCE_URL}/.well-known/jwks.json`)).json()) as { keys: PublicJwk[] };
+  return jwks;
+}
+
+/** A paid purchase comes with its cart signed by the owner's Allowance: check it like a merchant would. */
+async function showCart(outcome: PurchaseOutcome): Promise<void> {
+  if (!outcome.cart_mandate) return;
+  try {
+    const cart = verifyMandate<CartMandate>(outcome.cart_mandate, await publicKeys());
+    console.log(`      ${green('✓')} ${dim(`signed cart ${cart.jti}: ${cart.amount} ${cart.currency}, checked with the owner's public key`)}`);
+  } catch (error) {
+    console.log(red(`      ✕ the signed cart does not check out: ${error instanceof Error ? error.message : String(error)}`));
+  }
+}
+
 function show(outcome: PurchaseOutcome): void {
   const headline: Record<PurchaseOutcome['status'], string> = {
     paid: green('✓ PAID'),
@@ -187,6 +206,7 @@ async function requestPurchase(client: Client, results: Result[], label: string,
   console.log(dim(`    → request_purchase: ${label}, ${money(request.amount, request.currency)} to ${request.merchant}`));
   const outcome = await callTool(client, 'request_purchase', request);
   show(outcome);
+  await showCart(outcome);
   results.push({ label, outcome, held: outcome.status === 'on_hold' });
   return outcome;
 }
@@ -365,7 +385,19 @@ async function main(): Promise<void> {
   const { tools } = await client.listTools();
   console.log(`${bold(LLM ? `Shopping agent · ${AGENT_MODEL}` : 'Test agent · built to obey hidden notes')}  ${dim(`wallet ${ALLOWANCE_URL}/mcp`)}`);
   console.log(dim(LLM ? '  A real model: it reads the pages and decides by itself what to buy.' : '  A fixed script that trusts everything it reads, to show the worst case.'));
-  console.log(dim(`  It can pay only through Allowance's tools (${tools.map((tool) => tool.name).join(', ')}): no card, no PayPal login.`));
+  // The model pays through Allowance's purchase tools; the signed mandate is shown to merchants, so the harness keeps it.
+  const payTools = tools.filter((tool) => tool.name !== 'get_spending_mandate');
+  console.log(dim(`  It can pay only through Allowance's tools (${payTools.map((tool) => tool.name).join(', ')}): no card, no PayPal login.`));
+  try {
+    const result = (await client.callTool({ name: 'get_spending_mandate', arguments: {} })) as CallToolResult;
+    const view = result.structuredContent as { mandate: string; summary: string } | undefined;
+    if (result.isError || !view) throw new Error(textOf(result));
+    verifyMandate<IntentMandate>(view.mandate, await publicKeys());
+    console.log(dim(`  Signed spending mandate: ${view.summary.replace(/^Without asking the owner: /, '')}`));
+    console.log(`  ${green('✓')} ${dim("mandate checked with the owner's public key (/.well-known/jwks.json)")}`);
+  } catch (error) {
+    console.log(dim(`  No signed mandate: ${error instanceof Error ? error.message : String(error)}`));
+  }
 
   // The model sees Allowance's MCP tools exactly as published, plus a tool to read web pages.
   const modelTools = [
@@ -377,7 +409,7 @@ async function main(): Promise<void> {
         parameters: { type: 'object', properties: { url: { type: 'string', description: 'The full URL.' } }, required: ['url'] },
       },
     },
-    ...tools.map((tool) => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.inputSchema } })),
+    ...payTools.map((tool) => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.inputSchema } })),
   ];
   const messages: ChatMessage[] = [{ role: 'system', content: AGENT_PROMPT }];
 
@@ -405,6 +437,7 @@ async function main(): Promise<void> {
             ? red(`✕ DENIED by the owner: ${paypal} voided the hold, nothing was charged`)
             : yellow(`still ${status.replace('_', ' ')}`);
       console.log(`    ${result.label}: ${bold(answer)}  ${amount} ${currency}`);
+      await showCart(result.outcome);
     }
   }
   report(results);

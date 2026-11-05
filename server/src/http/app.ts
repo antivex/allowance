@@ -71,6 +71,7 @@ export function createApp(deps: AppDeps): express.Express {
   const apiFor = (agent: Agent): PurchaseApi => ({
     requestPurchase: (input) => wallet.requestPurchase(agent, input),
     getPurchase: async (requestId) => wallet.outcomeFor(agent.id, requestId),
+    getMandate: async () => wallet.mandateFor(agent, config.publicUrl),
   });
 
   // Streamable HTTP MCP endpoint, stateless: one short-lived server per request, bound to the calling agent.
@@ -96,6 +97,13 @@ export function createApp(deps: AppDeps): express.Express {
   });
   app.get('/api/agent/purchases/:id', agentAuth, (req: AgentRequest, res) => {
     res.json(wallet.outcomeFor(req.agent!.id, String(req.params.id)));
+  });
+  app.get('/api/agent/mandate', agentAuth, (req: AgentRequest, res) => {
+    res.json(wallet.mandateFor(req.agent!, config.publicUrl));
+  });
+  // Public: the keys that check this Allowance's spending mandates. Merchants need nothing else.
+  app.get('/.well-known/jwks.json', (_req, res) => {
+    res.set('Cache-Control', 'public, max-age=300').json(wallet.jwks());
   });
 
   // PayPal sends the owner back here after the wallet approval (a top-level GET navigation, which carries the session).
@@ -235,7 +243,7 @@ export function createApp(deps: AppDeps): express.Express {
 
   app.get('/api/purchases/:id', (req, res) => {
     const purchase = wallet.get(String(req.params.id));
-    res.json({ purchase, events: store.listEvents(purchase.id) });
+    res.json({ purchase, events: store.listEvents(purchase.id), cartMandate: wallet.cartMandate(purchase) });
   });
 
   // What PayPal itself says about a purchase, through PayPal's Agent Toolkit (get_order), next to the ledger.

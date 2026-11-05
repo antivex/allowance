@@ -14,6 +14,7 @@ import { PayPalRecords } from './paypal/records.js';
 import { createShopApp } from './shop.js';
 import { Store } from './store.js';
 import { VERSION } from './version.js';
+import { Mandates } from './mandate.js';
 import { Wallet } from './wallet.js';
 
 // Both server/src/index.ts (dev) and dist/server/index.js (built) sit two folders below the project root.
@@ -59,6 +60,8 @@ if (config.paypal) {
 
 const chat = config.ai.enabled ? new ChatClient(config.ai) : null;
 const wallet = new Wallet({
+  // Spending mandates: signed with a key Allowance creates on first run and keeps in its database.
+  mandates: new Mandates(store, config.publicUrl),
   store,
   gateway,
   reviewer: chat ? new AiReviewer(chat) : null,

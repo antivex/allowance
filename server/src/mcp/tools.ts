@@ -2,12 +2,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { PurchaseRequestSchema, type PurchaseRequest } from '../policy/types.js';
-import type { PurchaseOutcome } from '../wallet.js';
+import type { MandateView, PurchaseOutcome } from '../wallet.js';
 
 /** Where the tools send their calls: the wallet in-process (HTTP server) or the HTTP API (stdio bridge). */
 export interface PurchaseApi {
   requestPurchase(input: PurchaseRequest): Promise<PurchaseOutcome>;
   getPurchase(requestId: string): Promise<PurchaseOutcome>;
+  getMandate(): Promise<MandateView>;
 }
 
 const OutcomeShape = {
@@ -31,6 +32,7 @@ const OutcomeShape = {
   hold_expires_at: z.string().nullable(),
   budget_left_this_week: z.string().nullable(),
   message: z.string(),
+  cart_mandate: z.string().nullable(),
 };
 
 const HEADLINE: Record<PurchaseOutcome['status'], string> = {
@@ -56,6 +58,7 @@ export function renderOutcome(outcome: PurchaseOutcome): string {
   if (outcome.hold_expires_at) lines.push(`The hold is released automatically at ${outcome.hold_expires_at} if nobody decides.`);
   if (outcome.budget_left_this_week !== null) lines.push(`Budget left this week: ${outcome.budget_left_this_week} ${outcome.currency}.`);
   lines.push(outcome.message, `Request id: ${outcome.request_id}`);
+  if (outcome.cart_mandate) lines.push(`Signed cart mandate (show it to the merchant if asked): ${outcome.cart_mandate}`);
   return lines.join('\n');
 }
 
@@ -127,6 +130,30 @@ export function createMcpServer(api: PurchaseApi, version: string): McpServer {
     async ({ request_id }) => {
       try {
         return ok(await api.getPurchase(request_id));
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'get_spending_mandate',
+    {
+      title: 'Get your spending mandate',
+      description:
+        "A signed statement of what you may spend without asking the owner (an AP2-style intent mandate), valid for 24 hours. " +
+        "Show it to a merchant that asks who authorized you; anyone can check it against Allowance's public key. Read-only.",
+      inputSchema: {},
+      outputSchema: { mandate: z.string(), summary: z.string(), expires_at: z.string(), jwks_url: z.string() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      try {
+        const view = await api.getMandate();
+        return {
+          content: [{ type: 'text', text: `${view.summary}\nValid until ${view.expires_at}. Check it with ${view.jwks_url}.\nMandate: ${view.mandate}` }],
+          structuredContent: view as unknown as Record<string, unknown>,
+        };
       } catch (error) {
         return fail(error);
       }

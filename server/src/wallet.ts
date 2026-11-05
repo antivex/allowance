@@ -13,6 +13,7 @@ import {
   type PolicyResult,
   type Rules,
 } from './policy/types.js';
+import type { Mandates } from './mandate.js';
 import type { Agent, Purchase, PurchaseStatus, Store } from './store.js';
 
 export interface ReviewInput {
@@ -57,7 +58,17 @@ export interface WalletOptions {
   aiOnFailure: AiFailureMode;
   /** Identifies the PayPal app, so a wallet linked under other credentials is not reused. */
   gatewayKey: string;
+  /** Signs spending mandates (AP2-style); without it, outcomes carry no signed cart. */
+  mandates?: Mandates | null;
   now?: () => Date;
+}
+
+/** What an agent may spend without asking, signed, with a sentence for people. */
+export interface MandateView {
+  mandate: string;
+  summary: string;
+  expires_at: string;
+  jwks_url: string;
 }
 
 export interface BudgetSummary {
@@ -99,6 +110,8 @@ export interface PurchaseOutcome {
   hold_expires_at: string | null;
   budget_left_this_week: string | null;
   message: string;
+  /** For paid purchases: the cart signed by the owner's Allowance (compact JWS), checkable at /.well-known/jwks.json. */
+  cart_mandate: string | null;
 }
 
 /** Monday 00:00 in the server's local time zone. */
@@ -425,6 +438,44 @@ export class Wallet {
       hold_expires_at: purchase.holdExpiresAt,
       budget_left_this_week: budget.leftCents === null ? null : centsToValue(Math.max(0, budget.leftCents)),
       message: agentMessage(purchase),
+      cart_mandate: this.options.mandates?.cart(purchase) ?? null,
+    };
+  }
+
+  /** The signed cart of a paid purchase, for the owner's dashboard. */
+  cartMandate(purchase: Purchase): string | null {
+    return this.options.mandates?.cart(purchase) ?? null;
+  }
+
+  /** The public keys that check this Allowance's mandates. */
+  jwks() {
+    return this.options.mandates?.jwks() ?? { keys: [] };
+  }
+
+  /** The agent's intent mandate: what it may spend without asking, as the owner confirmed it. */
+  mandateFor(agent: Agent, publicUrl: string): MandateView {
+    const { mandates, store, currency } = this.options;
+    if (!mandates) throw new NotFoundError('This Allowance does not sign mandates.');
+    const record = store.activeRules();
+    if (!record) throw new NotFoundError('The owner has not confirmed any rules yet, so there is no mandate to give.');
+    const { mandate, payload } = mandates.intent(agent, record);
+    const money = (value: string) => formatMoney(Math.round(Number(value) * 100), currency);
+    const spend = payload.spend_without_asking;
+    const own = Object.entries(spend.category_limits).map(([category, limit]) => `${category.replace(/_/g, ' ')} up to ${money(limit)}`);
+    const parts = [
+      `up to ${money(spend.per_purchase_max)} per purchase${own.length ? ` (${own.join(', ')})` : ''}`,
+      spend.weekly_budget ? `${money(spend.weekly_budget)} a week` : null,
+      Array.isArray(spend.allowed_categories) ? `only ${spend.allowed_categories.map((c) => c.replace(/_/g, ' ')).join(', ')}` : null,
+    ].filter(Boolean);
+    const refused = payload.refused.categories.map((c) => c.replace(/_/g, ' '));
+    return {
+      mandate,
+      summary:
+        `Without asking the owner: ${parts.join(', ')}.` +
+        (refused.length ? ` Never: ${refused.join(', ')}.` : '') +
+        ' Anything else waits for the owner.',
+      expires_at: new Date(payload.exp * 1000).toISOString(),
+      jwks_url: `${publicUrl.replace(/\/$/, '')}/.well-known/jwks.json`,
     };
   }
 

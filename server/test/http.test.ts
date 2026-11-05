@@ -8,6 +8,7 @@ import type { Config } from '../src/config.js';
 import { EventBus } from '../src/events.js';
 import { createApp } from '../src/http/app.js';
 import { OWNER_COOKIE, OwnerAuth } from '../src/http/owner.js';
+import { Mandates, verifyMandate, type CartMandate, type IntentMandate, type PublicJwk } from '../src/mandate.js';
 import { Store } from '../src/store.js';
 import { Wallet, type PurchaseOutcome } from '../src/wallet.js';
 import { FakeGateway, FakeReviewer } from './helpers/fakes.js';
@@ -56,6 +57,7 @@ describe('HTTP API and MCP endpoint', () => {
       holdMinutes: 60,
       aiOnFailure: 'ask',
       gatewayKey: 'test',
+      mandates: new Mandates(store, CONFIG.publicUrl),
     });
     await wallet.ensureSimulatedLink();
     store.saveRules(EXAMPLE_RULES_TEXT, EXAMPLE_RULES, 'test', new Date());
@@ -78,7 +80,7 @@ describe('HTTP API and MCP endpoint', () => {
       new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${token}` } } }),
     );
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual(['get_purchase_status', 'request_purchase']);
+    expect(tools.map((tool) => tool.name).sort()).toEqual(['get_purchase_status', 'get_spending_mandate', 'request_purchase']);
 
     const result = await client.callTool({ name: 'request_purchase', arguments: INK });
     const outcome = result.structuredContent as unknown as PurchaseOutcome;
@@ -89,6 +91,31 @@ describe('HTTP API and MCP endpoint', () => {
     const status = await client.callTool({ name: 'get_purchase_status', arguments: { request_id: outcome.request_id } });
     expect((status.structuredContent as unknown as PurchaseOutcome).status).toBe('paid');
     await client.close();
+  });
+
+  it('gives agents signed mandates that anyone can check with the public key alone', async () => {
+    const jwks = (await (await fetch(`${base}/.well-known/jwks.json`)).json()) as { keys: PublicJwk[] };
+    expect(jwks.keys).toHaveLength(1);
+
+    const client = new Client({ name: 'test-agent', version: '1.0.0' });
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${token}` } } }),
+    );
+    const intent = (await client.callTool({ name: 'get_spending_mandate', arguments: {} })).structuredContent as { mandate: string; summary: string };
+    const said = verifyMandate<IntentMandate>(intent.mandate, jwks);
+    expect(said).toMatchObject({ type: 'intent_mandate', agent: 'Test agent', currency: 'USD' });
+    expect(said.spend_without_asking.per_purchase_max).toBe('50.00');
+    expect(intent.summary).toContain('up to $50.00 per purchase');
+
+    // A paid purchase comes back with its cart, signed; the id is the one PayPal's order carries as invoice_id.
+    const paid = (await client.callTool({ name: 'request_purchase', arguments: INK })).structuredContent as unknown as PurchaseOutcome;
+    const cart = verifyMandate<CartMandate>(paid.cart_mandate!, jwks);
+    expect(cart).toMatchObject({ type: 'cart_mandate', jti: paid.request_id, merchant: 'Inkwell Supplies', amount: '38.97', approved_by: 'rules' });
+    expect(cart.items).toEqual([{ name: 'XL black ink cartridge, 2-pack', quantity: 1, unit_price: '38.97' }]);
+    await client.close();
+
+    // Without a token there is no mandate; the public key needs none.
+    expect((await fetch(`${base}/api/agent/mandate`)).status).toBe(401);
   });
 
   it('rejects agents without a valid token', async () => {
