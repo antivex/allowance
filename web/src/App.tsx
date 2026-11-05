@@ -236,7 +236,7 @@ export function App() {
       </nav>
 
       {tab === 'ledger' && (
-        <>
+        <div className="ledger-tab">
           {!state.rules && (
             <div className="banner warn">
               <span className="grow">
@@ -272,21 +272,24 @@ export function App() {
               </button>
             </div>
           )}
-          <ApprovalCards
-            purchases={waiting}
-            busy={busy}
-            now={now}
-            simulated={state.mode !== 'sandbox'}
-            onApprove={(id) => void settle(id, 'approve')}
-            onDeny={(id) => void settle(id, 'deny')}
-            onOpen={setOpenId}
-          />
+          {/* On a phone the cards come first: deciding is what the owner opens it for. */}
+          <div className="approvals-block">
+            <ApprovalCards
+              purchases={waiting}
+              busy={busy}
+              now={now}
+              simulated={state.mode !== 'sandbox'}
+              onApprove={(id) => void settle(id, 'approve')}
+              onDeny={(id) => void settle(id, 'deny')}
+              onOpen={setOpenId}
+            />
+          </div>
           <div className="section-title">
             <h2>Ledger</h2>
             <span>Every request from every agent: the decision, why, and what PayPal did. Click a row for the full trail.</span>
           </div>
           <Ledger rows={rows} context={context} onOpen={setOpenId} />
-        </>
+        </div>
       )}
       {tab === 'rules' && <RulesPage key={state.rules?.id ?? 'none'} state={state} notify={notify} />}
       {tab === 'insights' && (

@@ -1559,3 +1559,40 @@ code,
   color: var(--brand);
   font-size: 18px;
 }
+
+/* On a phone the owner opens Allowance to decide: approval cards first, then compact figures, then the ledger. */
+.ledger-tab {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 640px) {
+  .ledger-tab .approvals-block {
+    order: -1;
+  }
+  .kpis {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .kpis .kpi:first-child {
+    grid-column: 1 / -1;
+  }
+  .kpi {
+    padding: 12px 14px;
+  }
+  .kpi .value {
+    font-size: 22px;
+  }
+  .kpi .hint {
+    font-size: 12px;
+  }
+  .approval .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .approval .actions .btn {
+    padding: 12px 10px;
+    justify-content: center;
+  }
+}

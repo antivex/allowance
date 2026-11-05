@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
+import { hostHeaderValidation, localhostHostValidation } from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
@@ -43,8 +43,13 @@ export function createApp(deps: AppDeps): express.Express {
   const signedIn = (req: Request) => owner.check(ownerToken(req.get('cookie')));
   const app = express();
   app.disable('x-powered-by');
-  // DNS-rebinding protection: a hostile page cannot reach this server through another host name.
-  if (LOCAL_HOSTS.has(config.host)) app.use(localhostHostValidation());
+  // DNS-rebinding protection: a hostile page cannot reach this server through another host name. On a home network
+  // (HOST=0.0.0.0, to approve from a phone) the only other name accepted is the one in PUBLIC_URL.
+  app.use(
+    LOCAL_HOSTS.has(config.host)
+      ? localhostHostValidation()
+      : hostHeaderValidation([...new Set(['localhost', '127.0.0.1', '[::1]', new URL(config.publicUrl).hostname])]),
+  );
   // The Insights agents send AG Studio's tool schemas with every turn, which outgrows the usual limit.
   app.use('/api/ai', express.json({ limit: '4mb' }));
   app.use(express.json({ limit: '200kb' }));

@@ -210,6 +210,37 @@ describe('HTTP API and MCP endpoint', () => {
     expect((await tryPassword(PASSWORD)).status).toBe(429);
   });
 
+  it('on a home network accepts only the PUBLIC_URL host name, and still wants the owner password', async () => {
+    const store = new Store(':memory:');
+    const wallet = new Wallet({ store, gateway: new FakeGateway(), reviewer: new FakeReviewer(), bus: new EventBus(), currency: 'USD', holdMinutes: 60, aiOnFailure: 'ask', gatewayKey: 'test' });
+    const lan = createApp({
+      config: { ...CONFIG, host: '0.0.0.0', publicUrl: 'http://192.168.1.20:4000' },
+      store,
+      wallet,
+      bus: new EventBus(),
+      owner: new OwnerAuth(store),
+      records: null,
+      chat: null,
+      compiler: null,
+      webDir: '/nonexistent',
+      stdioEntry: '/x/stdio.js',
+    }).listen(0, '127.0.0.1');
+    await new Promise((resolve) => lan.once('listening', resolve));
+    const port = (lan.address() as AddressInfo).port;
+    const statusFor = (host: string) =>
+      new Promise<number | undefined>((resolve, reject) => {
+        request(`http://127.0.0.1:${port}/api/state`, { headers: { Host: host } }, (response) => {
+          response.resume();
+          resolve(response.statusCode);
+        })
+          .on('error', reject)
+          .end();
+      });
+    expect(await statusFor('evil.example')).toBe(403);
+    expect(await statusFor('192.168.1.20:4000')).toBe(401);
+    await new Promise((resolve) => lan.close(resolve));
+  });
+
   it('refuses requests addressed to another host name (DNS rebinding)', async () => {
     // fetch() cannot set Host, so use node:http directly.
     const status = await new Promise<number | undefined>((resolve, reject) => {

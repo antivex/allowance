@@ -111,6 +111,13 @@ npm start                 # builds, then serves http://localhost:4000
 If linking fails with a permission error, make sure the app has the Vault (save payment methods) feature enabled. Set
 `PAYPAL_RECORD_DIR` to keep every PayPal request and response of a run, with credentials redacted.
 
+### Decide from your phone
+
+On the same Wi-Fi, set `HOST=0.0.0.0` and `PUBLIC_URL=http://<your computer's address>:4000` in `.env`, restart, and
+open that address on your phone. Sign in with the owner password: the purchases waiting for you come first, with big
+**Approve** and **Deny** buttons. Other host names are still refused and every owner action still needs the password,
+but the connection is plain HTTP, so use a network you trust.
+
 ## Connect your own agent
 
 Create a token for each agent in **Agents & setup**: the ledger then shows who asked for what, and you can revoke any
@@ -255,8 +262,8 @@ npm run eval:ai      # the AI evaluation above, against your configured model
   HttpOnly cookie, the password is stored as a scrypt hash, and sign-in pauses after five wrong passwords a minute. The
   first password is chosen through a one-time link printed in the terminal that started Allowance. Lost it? Stop
   Allowance and run `npm run demo:reset -- --owner`.
-- The dashboard listens on `127.0.0.1` only and refuses requests from other sites and other host names. Do not expose it
-  to a network as is.
+- The dashboard listens on `127.0.0.1` unless you set `HOST` to decide from your phone, and it refuses requests from
+  other sites and from any host name but `localhost` and the one in `PUBLIC_URL`. Do not expose it to the internet.
 - An agent with a shell on the machine that runs Allowance could read its files (`.env`, the database). Give agents the
   MCP endpoint and their token, not that machine.
 - This is a hackathon project that talks to the PayPal **sandbox**. Real money needs production credentials, real sign-in
@@ -264,7 +271,7 @@ npm run eval:ai      # the AI evaluation above, against your configured model
 
 ## What is next
 
-- Approval requests on the phone (push or email) instead of only in the dashboard.
+- Push notifications for held purchases, so the phone rings when an agent asks.
 - Budgets per agent and per merchant, so a learned limit can stay narrow.
 - Paying each merchant's own PayPal account instead of the app's sandbox business account.
 
