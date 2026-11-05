@@ -42,16 +42,78 @@ interface OrderJson {
 
 const first = (list?: Array<{ id: string; status: string }>) => (list?.[0] ? { id: list[0].id, status: list[0].status } : null);
 
+/** One settled transaction on PayPal's own list for the account, without the payer's personal details. */
+export interface PayPalTransaction {
+  id: string;
+  date: string | null;
+  amount: string | null;
+  /** S success, P pending, V reversed, D denied. */
+  status: string | null;
+  /** Allowance's request ID, which every order carries as its invoice ID. */
+  invoiceId: string | null;
+}
+
+/** What PayPal answers when the app lacks a permission (for transaction search: a checkbox in the app's settings). */
+export class PayPalRecordsError extends Error {}
+
 /**
  * PayPal's own Agent Toolkit, read-only. Allowance asks it for orders (its get_order tool) to check the ledger against
- * PayPal's records, for the owner and for the Insights auditor. Only the orders.get action is enabled, so nothing can
- * create, capture or refund through it.
+ * PayPal's records, and for the account's transaction list (list_transactions), for the owner and for the Insights
+ * auditor. Only these two read actions are enabled, so nothing can create, capture or refund through it.
  */
 export class PayPalRecords {
   private readonly kit: PayPalAgentToolkit;
 
   constructor(clientId: string, clientSecret: string) {
-    this.kit = new PayPalAgentToolkit({ clientId, clientSecret, configuration: { actions: { orders: { get: true } }, context: { sandbox: true } } });
+    this.kit = new PayPalAgentToolkit({
+      clientId,
+      clientSecret,
+      configuration: { actions: { orders: { get: true }, transactions: { list: true } }, context: { sandbox: true } },
+    });
+  }
+
+  /** PayPal's list of transactions in the last `days` days. New payments can take up to three hours to appear. */
+  async transactions(days = 7, now = new Date()): Promise<PayPalTransaction[]> {
+    const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const message = await this.kit.handleToolCall({
+      id: `list_transactions_${now.getTime()}`,
+      type: 'function',
+      function: { name: 'list_transactions', arguments: JSON.stringify({ start_date: start.toISOString(), end_date: now.toISOString() }) },
+    });
+    const text = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+    let data: {
+      ok?: boolean;
+      status?: number;
+      message?: string;
+      transaction_details?: Array<{
+        transaction_info?: {
+          transaction_id?: string;
+          transaction_initiation_date?: string;
+          transaction_amount?: { value: string; currency_code: string };
+          transaction_status?: string;
+          invoice_id?: string;
+        };
+      }>;
+    };
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new PayPalRecordsError(`PayPal did not return the transaction list: ${text.slice(0, 200)}`);
+    }
+    if (data.ok === false) {
+      throw new PayPalRecordsError(
+        data.status === 403
+          ? 'PayPal refused the transaction list: turn on "Transaction search" in the settings of your PayPal REST app.'
+          : `PayPal did not return the transaction list: ${data.message ?? data.status}`,
+      );
+    }
+    return (data.transaction_details ?? []).map(({ transaction_info: info = {} }) => ({
+      id: info.transaction_id ?? '',
+      date: info.transaction_initiation_date ?? null,
+      amount: info.transaction_amount ? `${info.transaction_amount.value} ${info.transaction_amount.currency_code}` : null,
+      status: info.transaction_status ?? null,
+      invoiceId: info.invoice_id ?? null,
+    }));
   }
 
   async order(orderId: string): Promise<PayPalOrderView> {

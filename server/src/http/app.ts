@@ -282,6 +282,24 @@ export function createApp(deps: AppDeps): express.Express {
     });
   });
 
+  // PayPal's own transaction list for the account (Transaction Search, through the Agent Toolkit), matched to the ledger.
+  app.get('/api/paypal/transactions', async (_req, res) => {
+    if (!records) {
+      res.json({ available: false, reason: OFFLINE });
+      return;
+    }
+    try {
+      const ledger = new Map(store.listPurchases().map((purchase) => [purchase.id, purchase]));
+      const transactions = (await records.transactions()).map((transaction) => {
+        const purchase = transaction.invoiceId ? ledger.get(transaction.invoiceId) : undefined;
+        return { ...transaction, inLedger: Boolean(purchase), merchant: purchase?.merchant ?? null, agent: purchase?.agentName ?? null };
+      });
+      res.json({ available: true, checkedAt: new Date().toISOString(), note: 'PayPal can take up to three hours to list a new payment.', transactions });
+    } catch (error) {
+      res.json({ available: false, reason: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   app.post('/api/purchases/:id/approve', async (req, res) => {
     res.json(await wallet.approve(String(req.params.id)));
   });

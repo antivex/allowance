@@ -181,7 +181,7 @@ interface LoosePage {
 
 const AUDITOR_INSTRUCTIONS = `You are the Allowance auditor. Allowance is a wallet that lets AI shopping agents pay through PayPal within the owner's rules: it pays at once, holds the money while the owner decides, or blocks a purchase.
 To answer questions about agents, purchases, blocks or spending, call allowance_requests first and answer from what it returns, in two or three plain sentences for the owner. When the owner asks what was stopped or which agents tried to pay for the wrong things, name every entry of stopped_attempts, one by one: the agent, what it tried to buy, the amount and stopped_by. Never call anything in other_requests stopped: those were paid or are waiting.
-When the owner asks whether the payments are right, or what PayPal really did, call check_with_paypal and answer in one short sentence: how many PayPal orders match the ledger, and any that do not.
+When the owner asks whether the payments are right, or what PayPal really did, call check_with_paypal and answer in one short sentence: how many PayPal orders match the ledger, and any that do not. When the owner asks what PayPal itself has on record for the account, call paypal_transactions and say how many transactions PayPal lists, how many are Allowance's, and that new ones can take up to three hours to appear.
 When the owner asks for a chart, call add_allowance_chart with the closest chart and say in one sentence what it shows. Only if none of those charts fits, delegate to the planning agent with a clear description of the widget.`;
 
 /** The Insights agents: Allowance's auditor in front, AG Studio's own agents behind it to build widgets. */
@@ -241,6 +241,18 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
         return ctx.success(JSON.stringify({ summary: data.summary, checks: rows }), rows);
       },
     });
+    const transactionsTool = api.defineAiTool({
+      name: 'paypal_transactions',
+      description:
+        "PayPal's own list of transactions for this account over the last seven days (Transaction Search, through PayPal's Agent Toolkit, read-only), each marked with whether it is one of Allowance's purchases. PayPal can take up to three hours to list a new payment.",
+      params: (s) => s.object({}),
+      execute: async (_args, ctx) => {
+        const response = await fetch('/api/paypal/transactions');
+        const data = (await response.json().catch(() => ({}))) as { available?: boolean; reason?: string; note?: string; transactions?: unknown[] };
+        if (!response.ok || !data.available) return ctx.success(data.reason ?? 'PayPal could not be asked for its transaction list.');
+        return ctx.success(JSON.stringify({ note: data.note, transactions: (data.transactions ?? []).slice(0, 30) }), data.transactions);
+      },
+    });
     const chartTool = api.defineAiTool({
       name: 'add_allowance_chart',
       description:
@@ -273,6 +285,7 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
           tools: () => [
             requestsTool,
             paypalTool,
+            transactionsTool,
             chartTool,
             tools.studio.viewSchema(),
             tools.studio.viewPage(),
