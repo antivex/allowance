@@ -10,6 +10,9 @@ at all.
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT licensed. It runs on the real PayPal
 sandbox: [docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md) lists the orders, authorizations and captures of a recorded run.
 
+**Watch the demo (2:49):** [youtu.be/o0FqwFxQB9Y](https://youtu.be/o0FqwFxQB9Y): a real model falls for a note hidden on a
+shop page, and Allowance and PayPal stop the money. **Devpost:** [devpost.com/software/allowance-guofr8](https://devpost.com/software/allowance-guofr8).
+
 ![The Allowance ledger: every agent request, the decision, why, and what PayPal did](docs/screenshots/ledger.png)
 
 > **Judges, run it in three commands** (Node.js 22.13 or newer; nothing to sign up for):
