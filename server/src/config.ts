@@ -25,6 +25,8 @@ export interface Config {
   ai: AiConfig;
   /** Port of the demo shop, or 0 to turn it off. */
   shopPort: number;
+  /** AG Studio license key for the Insights tab, handed to the dashboard at runtime and never logged. */
+  agStudioLicenseKey: string | null;
 }
 
 export class ConfigError extends Error {}
@@ -88,5 +90,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root: string = 
       onFailure,
     },
     shopPort: int(env, 'SHOP_PORT', 4100, 0, 65535),
+    agStudioLicenseKey: str(env, 'AG_STUDIO_LICENSE_KEY', '') || null,
   };
 }

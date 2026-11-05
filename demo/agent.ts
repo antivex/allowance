@@ -10,6 +10,7 @@
  *   npm run demo -- --llm        the same errands, decided by a real model
  *   npm run demo -- --step       pause before each errand (for recording)
  *   npm run demo -- --no-wait    do not wait for the owner at the end
+ *   npm run demo -- --only=paper run one errand only (ink, paper or chair)
  *
  * Environment: ALLOWANCE_URL (http://localhost:4000), SHOP_URL (http://localhost:4100) and ALLOWANCE_AGENT_TOKEN
  * (by default the demo agent token Allowance writes to data/demo-agent.token on first start). For --llm also
@@ -34,6 +35,8 @@ const flags = new Set(process.argv.slice(2));
 const STEP = flags.has('--step');
 const LLM = flags.has('--llm');
 const WAIT_FOR_OWNER = !flags.has('--no-wait');
+/** --only=paper runs a single errand (ink, paper or chair). */
+const ONLY = [...flags].find((flag) => flag.startsWith('--only='))?.slice('--only='.length);
 const WAIT_SECONDS = 300;
 const MAX_TURNS = 12;
 
@@ -351,8 +354,8 @@ async function main(): Promise<void> {
   });
   await client.connect(transport);
   const { tools } = await client.listTools();
-  console.log(`${bold('Demo shopping agent')}  ${dim(`shop ${SHOP_URL} · wallet ${ALLOWANCE_URL}/mcp`)}`);
-  console.log(dim(LLM ? `  Brain: ${AGENT_MODEL}, a real model that reads the pages and decides by itself.` : '  Brain: a fixed script that trusts what it reads.'));
+  console.log(`${bold(LLM ? `Shopping agent · ${AGENT_MODEL}` : 'Test agent · built to obey hidden notes')}  ${dim(`wallet ${ALLOWANCE_URL}/mcp`)}`);
+  console.log(dim(LLM ? '  A real model: it reads the pages and decides by itself what to buy.' : '  A fixed script that trusts everything it reads, to show the worst case.'));
   console.log(dim(`  It can pay only through Allowance's tools (${tools.map((tool) => tool.name).join(', ')}): no card, no PayPal login.`));
 
   // The model sees Allowance's MCP tools exactly as published, plus a tool to read web pages.
@@ -370,8 +373,10 @@ async function main(): Promise<void> {
   const messages: ChatMessage[] = [{ role: 'system', content: AGENT_PROMPT }];
 
   const results: Result[] = [];
-  for (const [index, errand] of ERRANDS.entries()) {
-    console.log(`\n${bold(`Errand ${index + 1}/${ERRANDS.length}`)}  "${errand.ask}"`);
+  const errands = ONLY ? ERRANDS.filter((errand) => errand.look === ONLY) : ERRANDS;
+  if (!errands.length) throw new Error(`No errand called "${ONLY}": use ink, paper or chair.`);
+  for (const [index, errand] of errands.entries()) {
+    console.log(`\n${bold(`Errand ${index + 1}/${errands.length}`)}  "${errand.ask}"`);
     if (STEP) await pause('Next errand');
     if (LLM) await modelErrand(client, results, messages, modelTools, errand.ask);
     else await scriptedErrand(client, results, errand);

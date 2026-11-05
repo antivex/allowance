@@ -787,6 +787,59 @@ code,
   color: var(--muted);
 }
 
+/* The Agent watchlist widget inside AG Studio. */
+.watchlist {
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px;
+}
+
+.watch {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.watch:hover,
+.watch.on {
+  border-color: var(--brand);
+}
+
+.watch.flagged {
+  border-left: 3px solid var(--bad);
+}
+
+.watch .who {
+  font-weight: 600;
+}
+
+.watch .paid {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.watch .blocked {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.watch .blocked.bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+
 /* AG Studio fills its parent, so the parent needs a height. */
 .insights {
   height: calc(100vh - 190px);

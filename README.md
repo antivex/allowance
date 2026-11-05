@@ -48,6 +48,15 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
 
 5. **A live ledger built on AG Grid**: every request from every agent with the decision, the explanation and the PayPal
    status. Approve and deny inside the row, filters by outcome and agent, search, totals and CSV export.
+6. **Insights, built with AG Studio**: a dashboard over the same requests, themed like the rest of the app.
+   - Where the money went (paid, held, kept from leaving, stopped by the AI), spend by agent and outcome, who decided,
+     and every request.
+   - **Agent watchlist**, a custom widget: one card per agent with what it paid and what was blocked; a click
+     cross-filters the whole dashboard to that agent.
+   - **An AI assistant** inside AG Studio's agent framework, on the same local model: the *Allowance auditor* answers
+     questions such as "which agents tried to pay for things they should not have?" from the ledger, adds ready-made
+     charts on request, and can hand anything else to Studio's own agents. **Customize** opens the editor and the
+     assistant.
 
 ## Try it in five minutes
 
@@ -154,6 +163,14 @@ flowchart LR
 - **Evaluation**: `npm run eval:ai` runs ten purchases, from plain ink to hidden-fee and gift-card scams, under three agent
   names (small models react even to the agent's name). On 4 Nov 2026 `qwen3.5:4b` gave the expected verdict in all 30
   reviews. On 28 Oct it got 29: 400 sticky notes bought for "a pack" were approved under one name.
+- **Insights assistant**: AG Studio's agent framework, driven through a small adapter for OpenAI-compatible chat
+  completions (`web/src/components/insightsAi.ts`). The browser calls Allowance's server, which adds the model and the key,
+  so neither reaches the page. The auditor has two tools of its own (the ledger's requests, and ready-made charts) and
+  delegates other widget requests to Studio's planning, data, page and widget agents. A small model handles the first
+  two reliably; building arbitrary widgets through Studio's agents needs a stronger one.
+- **AG Studio license**: AG Studio is commercial software. Put a trial or license key in `AG_STUDIO_LICENSE_KEY`; the
+  server hands it to the page at runtime, so it never lands in the built files. Without a key Insights still works, with a
+  watermark.
 - **Without an AI endpoint** Allowance still works: the rules decide, and every purchase they would pay waits for you
   instead (`AI_ON_FAILURE=ask`). Set `AI_ON_FAILURE=keep` to let the rules decide alone, or `AI_ENABLED=false` to turn
   the review off. The demo then looks different from the video: nothing is blocked by the AI.

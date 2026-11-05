@@ -246,7 +246,7 @@ export function App() {
       {tab === 'rules' && <RulesPage key={state.rules?.id ?? 'none'} state={state} notify={notify} />}
       {tab === 'insights' && (
         <Suspense fallback={<div className="empty">Loading insights…</div>}>
-          <Insights rows={rows} />
+          <Insights rows={rows} currency={state.currency} />
         </Suspense>
       )}
       {tab === 'setup' && <SetupPage state={state} notify={notify} />}

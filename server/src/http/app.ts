@@ -37,6 +37,8 @@ export function createApp(deps: AppDeps): express.Express {
   app.disable('x-powered-by');
   // DNS-rebinding protection: a hostile page cannot reach this server through another host name.
   if (LOCAL_HOSTS.has(config.host)) app.use(localhostHostValidation());
+  // The Insights agents send AG Studio's tool schemas with every turn, which outgrows the usual limit.
+  app.use('/api/ai', express.json({ limit: '4mb' }));
   app.use(express.json({ limit: '200kb' }));
 
   // ---------- Agent side: bearer token ----------
@@ -140,6 +142,34 @@ export function createApp(deps: AppDeps): express.Express {
       mcp: { httpUrl: `${config.publicUrl}/mcp`, stdioEntry: deps.stdioEntry, nodePath: process.execPath, serverUrl: config.publicUrl },
       shopUrl: config.shopPort ? `http://localhost:${config.shopPort}` : null,
     });
+  });
+
+  // The Insights agents (AG Studio's agent framework) reach the model through here, so its endpoint and key stay server-side.
+  app.post('/api/ai/chat/completions', async (req, res) => {
+    if (!chat) {
+      res.status(503).json({ error: 'The AI is turned off (AI_ENABLED=false).' });
+      return;
+    }
+    const send = (reasoning: boolean) =>
+      fetch(`${config.ai.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.ai.apiKey}` },
+        body: JSON.stringify({ ...req.body, model: config.ai.model, stream: false, ...(reasoning ? { reasoning_effort: config.ai.reasoningEffort } : {}) }),
+        signal: AbortSignal.timeout(Math.max(config.ai.timeoutMs, 120_000)),
+      });
+    try {
+      let response = await send(Boolean(config.ai.reasoningEffort));
+      // Some endpoints reject reasoning_effort: ask again without it.
+      if (response.status === 400 && config.ai.reasoningEffort) response = await send(false);
+      res.status(response.status).type('application/json').send(await response.text());
+    } catch (error) {
+      res.status(502).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // The AG Studio key reaches the browser only at runtime, from this local server: never in the built bundle or the repo.
+  app.get('/api/insights/config', (_req, res) => {
+    res.set('Cache-Control', 'no-store').json({ licenseKey: config.agStudioLicenseKey });
   });
 
   app.get('/api/purchases', (_req, res) => {

@@ -21,6 +21,7 @@ const CONFIG: Config = {
   paypal: null,
   ai: { enabled: false, baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'test', reasoningEffort: '', timeoutMs: 1000, onFailure: 'ask' },
   shopPort: 0,
+  agStudioLicenseKey: null,
 };
 
 const INK = {
