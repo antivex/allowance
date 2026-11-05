@@ -12,6 +12,19 @@ sandbox: [docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md) lists the orders, author
 
 ![The Allowance ledger: every agent request, the decision, why, and what PayPal did](docs/screenshots/ledger.png)
 
+> **Judges, run it in three commands** (Node.js 22.13 or newer; nothing to sign up for):
+>
+> ```bash
+> git clone https://github.com/antivex/allowance.git && cd allowance
+> npm install && npm run setup
+> npm start
+> ```
+>
+> Open the one-time link `npm start` prints and choose an owner password. Press **Confirm rules** on the **Rules** tab,
+> then run `npm run demo` in a second terminal: a test agent obeys a note hidden on a shop page, and Allowance stops it.
+> Without PayPal credentials everything runs in a clearly labelled offline simulation. For the real PayPal sandbox and a
+> real local model (`npm run demo -- --llm`), see [Try it in five minutes](#try-it-in-five-minutes).
+
 ## Why
 
 AI agents can now shop and pay. Handing one your wallet is risky:
