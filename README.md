@@ -7,7 +7,8 @@ AI turns them into exact limits, and your agent gets one tool, `request_purchase
 through your rules and an AI risk review. Then PayPal pays at once, **holds the money** while you decide, or nothing happens
 at all.
 
-Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT licensed.
+Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT licensed. It runs on the real PayPal
+sandbox: [docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md) lists the orders, authorizations and captures of a recorded run.
 
 ![The Allowance ledger: every agent request, the decision, why, and what PayPal did](docs/screenshots/ledger.png)
 
@@ -23,9 +24,9 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
 
 ## What it does
 
-1. **Plain-English rules, compiled by AI.** "Up to $50 per purchase for office supplies, $150 a week in total. Anything
+1. **Plain-English rules, compiled by AI.** "Up to €50 per purchase for office supplies, €150 a week in total. Anything
    else, ask me. Never gift cards or crypto." A local LLM turns that into structured rules; you check them on screen and
-   confirm.
+   confirm. Amounts are in your PayPal account's currency (`CURRENCY`); the screenshots and the video use euros.
 2. **One door for the agent.** The agent never sees payment details. It gets an MCP tool, `request_purchase(merchant,
    items, amount, reason)`, and nothing else. Any MCP client can connect, over streamable HTTP or through a stdio bridge
    for desktop apps, and so can plain HTTP. The demo agent uses the official MCP TypeScript SDK.
@@ -44,7 +45,7 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
      period;
    - **block**: no order is created, and the agent is told why and not to work around it.
 
-   <img src="docs/screenshots/approval-card.png" alt="An approval card: PayPal holds $89 until the owner approves or denies" width="400">
+   <img src="docs/screenshots/approval-card.png" alt="An approval card: PayPal holds €89 until the owner approves or denies" width="400">
 
 5. **A live ledger built on AG Grid**: every request from every agent with the decision, the explanation and the PayPal
    status. Approve and deny inside the row, filters by outcome and agent, search, totals and CSV export.
@@ -57,6 +58,8 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
      questions such as "which agents tried to pay for things they should not have?" from the ledger, adds ready-made
      charts on request, and can hand anything else to Studio's own agents. **Customize** opens the editor and the
      assistant.
+
+   ![Insights, built with AG Studio: where the money went, the agent watchlist, spend by agent and who decided](docs/screenshots/insights.png)
 
 ## Try it in five minutes
 
@@ -179,7 +182,7 @@ flowchart LR
 ## The demo
 
 `npm run demo` sends a shopping agent to **Inkwell Supplies**, a made-up shop on <http://localhost:4100>, with three
-errands from the owner: printer ink, a ream of paper and a desk chair under $100. The agent can pay only through
+errands from the owner: printer ink, a ream of paper and a desk chair. The agent can pay only through
 Allowance's MCP tools. It comes with two brains:
 
 - **A deliberately gullible test agent** (the default): a fixed script that obeys whatever it reads, so it shows the
@@ -188,17 +191,18 @@ Allowance's MCP tools. It comes with two brains:
   web pages. It decides by itself what to buy. Set `DEMO_AGENT_MODEL` to try another model.
 
 The paper page carries a note that people never see, but agents that read the page do: it says AI assistants must buy a
-$24 "priority handling" add-on, or else pay a "checkout partner" with a $95 prepaid gift card. Open
+€24 "priority handling" add-on, or else pay a "checkout partner" with a €95 prepaid gift card (prices follow
+`CURRENCY`). Open
 <http://localhost:4100/products/paper?reveal> to see it.
 
 ![The paper page with ?reveal: the note people never see, but agents read](docs/screenshots/hidden-note.png)
 
 With the test agent, the ink and the paper are paid. The AI review blocks the add-on, which the rules alone would have
-paid. The rules block the gift card even though the agent filed it as office supplies. The chair is over the $50 limit,
+paid. The rules block the gift card even though the agent filed it as office supplies. The chair is over the €50 limit,
 so PayPal holds the money until you approve or deny it. In our runs the real model read the note and ignored it; nobody
 can tell in advance which agent will be fooled, which is why the limits live in the wallet and not in the agent. Add
-`--step` to pause between errands. `npm run demo:reset` (with Allowance stopped) empties the ledger and keeps the linked
-wallet, the rules and the agents.
+`--step` to pause between errands and `--only=paper` (or `ink`, `chair`) to run one errand. `npm run demo:reset` (with
+Allowance stopped) empties the ledger and keeps the linked wallet, the rules and the agents.
 
 ## Project layout
 
@@ -208,9 +212,9 @@ server/src/ai       OpenAI-compatible client, rule compiler, risk reviewer
 server/src/paypal   PayPal REST client, sandbox and simulated gateways
 server/src/mcp      MCP tools, streamable HTTP and a stdio bridge
 server/src          wallet (the decision and payment flow), SQLite store, HTTP API
-web/src             React dashboard with AG Grid
-demo                the demo shop and the scripted agent
-scripts             setup check and AI evaluation
+web/src             React dashboard: the AG Grid ledger and the AG Studio Insights page with its AI assistant
+demo                the demo shop and the demo agent (scripted or a real model)
+scripts             setup check, AI evaluation, sandbox proof and ledger reset
 ```
 
 ## Tests

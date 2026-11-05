@@ -6,6 +6,7 @@ import {
   type AgDefaultWidgetDefinition,
   type AgFieldDefinition,
   type AgReportState,
+  type AgStudioApi,
   type AgWidgetsConfig,
 } from 'ag-studio';
 import { AgStudio, AgStudioProvider, createWidgets } from 'ag-studio-react';
@@ -16,6 +17,8 @@ import { allowanceAi } from './insightsAi';
 /** Rows go to Studio in this order, so each outcome takes the same palette colour everywhere: paid green, held amber, blocked red. */
 const OUTCOME_ORDER: PurchaseStatus[] = ['paid', 'on_hold', 'settling', 'blocked', 'denied', 'expired', 'failed', 'processing'];
 const STUDIO_MODULES = [AgStudioAiModule];
+/** Every money field is a sum already: legends and labels read "Paid", not "Paid (sum)". */
+const LOCALE = { aggregationSumFieldName: '${name}', aggregationSumBucketName: '${name}' };
 import { AgentWatchlist, watchlistForm, type WatchlistWidget } from './AgentWatchlist';
 
 /** Studio's widgets plus Allowance's own. */
@@ -158,7 +161,8 @@ const INITIAL_STATE = {
           type: 'bar-chart-stacked',
           format: {
             title: { text: 'Spend by agent and outcome', enabled: true },
-            style: { theme: { common: { legend: { enabled: true, position: 'bottom' } } } },
+            // On the right the four outcomes stack and all fit; at the bottom they would page.
+            style: { theme: { common: { legend: { enabled: true, position: 'right' } } } },
           },
           // Four measures, not a split by outcome: each keeps its palette colour even when it is zero.
           dataMapping: {
@@ -202,6 +206,20 @@ export function Insights({ rows, currency }: { rows: Purchase[]; currency: strin
   const requests = useRef(rows);
   requests.current = rows;
   const ai = useMemo(() => allowanceAi(requests), []);
+  const studio = useRef<AgStudioApi | null>(null);
+  const customized = useRef(false);
+  useEffect(() => {
+    const api = studio.current;
+    if (mode !== 'edit' || !api || customized.current) return;
+    customized.current = true;
+    // Studio builds the edit panels on the first Customize. Compose and data start folded, so the AI assistant sits
+    // next to the page; both are one click away.
+    const timer = setTimeout(() => {
+      const state = api.getState();
+      api.setState({ ...state, panels: { ...state.panels, edit: { collapsed: true }, data: { collapsed: true } } });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [mode]);
   useEffect(() => {
     fetch('/api/insights/config')
       .then((response) => response.json() as Promise<{ licenseKey: string | null }>)
@@ -252,6 +270,10 @@ export function Insights({ rows, currency }: { rows: Purchase[]; currency: strin
             theme={theme}
             widgets={widgets}
             ai={ai}
+            localeText={LOCALE}
+            onApiReady={(event) => {
+              studio.current = event.api as unknown as AgStudioApi;
+            }}
             initialState={INITIAL_STATE as unknown as AgReportState<AllowanceRegistry>}
             style={{ height: '100%', width: '100%' }}
           />
