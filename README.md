@@ -290,11 +290,17 @@ npm run eval:ai      # the AI evaluation above, against your configured model
 - This is a hackathon project that talks to the PayPal **sandbox**. Real money needs production credentials, real sign-in
   and a security review.
 
-## What is next
+## From hackathon to production
 
-- Push notifications for held purchases, so the phone rings when an agent asks.
-- Budgets per agent and per merchant, so a learned limit can stay narrow.
-- Paying each merchant's own PayPal account instead of the app's sandbox business account.
+The decision layer (rules, AI review that can only tighten, holds, the owner's say) stays as it is. Three steps around it:
+
+1. **Pay the merchant, not the app.** Today every sandbox order goes to the app's own business account. In production
+   Allowance would onboard merchants through PayPal's multiparty (platform) integration and put each merchant on its
+   orders as the payee, or pay at merchants that accept agent-initiated PayPal payments.
+2. **One wallet per owner, hosted.** Owner accounts instead of a single local password, each with its own vaulted
+   PayPal wallet, and push notifications for held purchases, so the phone rings when an agent asks.
+3. **Narrower limits and a stronger review.** Budgets per agent and per merchant, so a learned limit can stay narrow;
+   a larger model behind the same "can only tighten" contract; the AI evaluation run on every change.
 
 ## License
 
