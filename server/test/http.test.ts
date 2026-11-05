@@ -62,7 +62,7 @@ describe('HTTP API and MCP endpoint', () => {
     token = store.createAgent('Test agent', new Date()).token;
     const owner = new OwnerAuth(store);
     ownerCookie = `${OWNER_COOKIE}=${await owner.setup(owner.setupCode!, PASSWORD)}`;
-    const app = createApp({ config: CONFIG, store, wallet, bus, owner, chat: null, compiler: null, webDir: '/nonexistent', stdioEntry: '/x/stdio.js' });
+    const app = createApp({ config: CONFIG, store, wallet, bus, owner, records: null, chat: null, compiler: null, webDir: '/nonexistent', stdioEntry: '/x/stdio.js' });
     server = app.listen(0, '127.0.0.1');
     await new Promise((resolve) => server.once('listening', resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

@@ -10,6 +10,7 @@ import { createApp } from './http/app.js';
 import { OwnerAuth } from './http/owner.js';
 import { PayPalClient } from './paypal/client.js';
 import { SandboxGateway, SimulatedGateway, type PaymentGateway } from './paypal/gateway.js';
+import { PayPalRecords } from './paypal/records.js';
 import { createShopApp } from './shop.js';
 import { Store } from './store.js';
 import { VERSION } from './version.js';
@@ -84,6 +85,7 @@ const app = createApp({
   wallet,
   bus,
   owner,
+  records: config.paypal ? new PayPalRecords(config.paypal.clientId, config.paypal.clientSecret) : null,
   chat,
   compiler: chat ? new RulesCompiler(chat, config.currency) : null,
   webDir: join(root, 'dist', 'web'),

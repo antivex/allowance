@@ -160,7 +160,7 @@ const INITIAL_STATE = {
         byAgent: {
           type: 'bar-chart-stacked',
           format: {
-            title: { text: 'Spend by agent and outcome', enabled: true },
+            title: { text: 'Spend by agent', enabled: true },
             // On the right the four outcomes stack and all fit; at the bottom they would page.
             style: { theme: { common: { legend: { enabled: true, position: 'right' } } } },
           },

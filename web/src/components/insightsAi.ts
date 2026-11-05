@@ -9,7 +9,7 @@ import {
   type AgLlmResponse,
   type AgStudioApi,
 } from 'ag-studio';
-import type { Purchase } from '../types';
+import type { Purchase, ReconcileResult } from '../types';
 
 interface ChatToolCall {
   id: string;
@@ -167,6 +167,7 @@ interface LoosePage {
 
 const AUDITOR_INSTRUCTIONS = `You are the Allowance auditor. Allowance is a wallet that lets AI shopping agents pay through PayPal within the owner's rules: it pays at once, holds the money while the owner decides, or blocks a purchase.
 To answer questions about agents, purchases, blocks or spending, call allowance_requests first and answer from what it returns, in two or three plain sentences for the owner: name the agents, the merchants, the amounts and who blocked what (the rules or the AI review).
+When the owner asks whether the payments are right, or what PayPal really did, call check_with_paypal and say how many PayPal orders match the ledger; name any that do not.
 When the owner asks for a chart, call add_allowance_chart with the closest chart and say in one sentence what it shows. Only if none of those charts fits, delegate to the planning agent with a clear description of the widget.`;
 
 /** The Insights agents: Allowance's auditor in front, AG Studio's own agents behind it to build widgets. */
@@ -192,6 +193,30 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
             why: p.explanation,
           }));
         return ctx.success(rows.length ? JSON.stringify(rows) : 'No matching requests.', rows);
+      },
+    });
+    const paypalTool = api.defineAiTool({
+      name: 'check_with_paypal',
+      description:
+        "Check the ledger against PayPal's own records, through PayPal's Agent Toolkit (its get_order tool, read-only): for every purchase that reached PayPal, what PayPal says about the order, the hold and the capture, and whether that matches the ledger. Blocked purchases never reach PayPal.",
+      params: (s) => s.object({}),
+      execute: async (_args, ctx) => {
+        const response = await fetch('/api/paypal/reconcile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const data = (await response.json().catch(() => ({}))) as ReconcileResult & { error?: string };
+        if (!response.ok || !data.available || !data.checks) return ctx.success(data.reason ?? data.error ?? 'PayPal could not be checked.');
+        const byId = new Map(requests.current.map((purchase) => [purchase.id, purchase]));
+        const rows = data.checks.map((check) => {
+          const purchase = byId.get(check.purchaseId);
+          return {
+            agent: check.agent,
+            merchant: check.merchant,
+            amount: check.amount,
+            ledger: purchase ? outcomeInWords(purchase) : check.ledger,
+            paypal_says: check.paypal,
+            matches_ledger: check.matches,
+          };
+        });
+        return ctx.success(JSON.stringify({ summary: data.summary, checks: rows }), rows);
       },
     });
     const chartTool = api.defineAiTool({
@@ -225,6 +250,7 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
           instructions: () => AUDITOR_INSTRUCTIONS,
           tools: () => [
             requestsTool,
+            paypalTool,
             chartTool,
             tools.studio.viewSchema(),
             tools.studio.viewPage(),
@@ -236,6 +262,7 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
       primary: 'auditor',
       promptStarters: [
         { label: 'What was blocked?', prompt: 'Which agents tried to pay for things they should not have, and who stopped them?' },
+        { label: 'Check with PayPal', prompt: 'Check the ledger against PayPal: does every payment match what PayPal says?' },
         { label: 'Chart by decider', prompt: 'Add a chart of the money each agent asked for, split by who decided.' },
       ],
     }));

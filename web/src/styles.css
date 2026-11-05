@@ -1458,3 +1458,18 @@ code,
   color: var(--text);
   border-color: var(--brand);
 }
+
+/* "Check on PayPal" in the purchase drawer: PayPal's own record next to the ledger. */
+.paypal-check {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.paypal-check-meta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}

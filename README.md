@@ -56,9 +56,10 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
    - **Agent watchlist**, a custom widget: one card per agent with what it paid and what was blocked; a click
      cross-filters the whole dashboard to that agent.
    - **An AI assistant** inside AG Studio's agent framework, on the same local model: the *Allowance auditor* answers
-     questions such as "which agents tried to pay for things they should not have?" from the ledger, adds ready-made
-     charts on request, and can hand anything else to Studio's own agents. **Customize** opens the editor and the
-     assistant.
+     questions such as "which agents tried to pay for things they should not have?" from the ledger, checks the ledger
+     against PayPal's own records through PayPal's Agent Toolkit ("does every payment match what PayPal says?"), adds
+     ready-made charts on request, and can hand anything else to Studio's own agents. **Customize** opens the editor
+     and the assistant.
 
    ![Insights, built with AG Studio: where the money went, the agent watchlist, spend by agent and who decided](docs/screenshots/insights.png)
 
@@ -160,6 +161,7 @@ flowchart LR
 | Vault v3 | `POST /v3/vault/setup-tokens`, `POST /v3/vault/payment-tokens`, `DELETE /v3/vault/payment-tokens/{id}` | Link the owner's PayPal wallet once; unlink it |
 | Orders v2 | `POST /v2/checkout/orders` with `payment_source.paypal.vault_id`, intent `CAPTURE` or `AUTHORIZE` | Pay at once, or hold the money |
 | Payments v2 | `POST /v2/payments/authorizations/{id}/capture`, `POST /v2/payments/authorizations/{id}/void` | Your approve and deny buttons, and the 24-hour auto-void |
+| [PayPal Agent Toolkit](https://github.com/paypal/agent-toolkit) | `get_order` only (the `orders.get` action; nothing else is enabled) | **Check on PayPal** in each purchase's details, and the Insights auditor's `check_with_paypal` tool: the ledger next to PayPal's own record of every order |
 
 Who gets the money: in the sandbox every order is paid to the business account of your PayPal REST app, which stands in
 for the shop. Paying each merchant's own PayPal account is the next step.
@@ -176,9 +178,10 @@ for the shop. Paying each merchant's own PayPal account is the next step.
   reviews. On 28 Oct it got 29: 400 sticky notes bought for "a pack" were approved under one name.
 - **Insights assistant**: AG Studio's agent framework, driven through a small adapter for OpenAI-compatible chat
   completions (`web/src/components/insightsAi.ts`). The browser calls Allowance's server, which adds the model and the key,
-  so neither reaches the page. The auditor has two tools of its own (the ledger's requests, and ready-made charts) and
-  delegates other widget requests to Studio's planning, data, page and widget agents. A small model handles the first
-  two reliably; building arbitrary widgets through Studio's agents needs a stronger one.
+  so neither reaches the page. The auditor has three tools of its own (the ledger's requests, `check_with_paypal`, which
+  reads every order back from PayPal through PayPal's Agent Toolkit, and ready-made charts) and delegates other widget
+  requests to Studio's planning, data, page and widget agents. A small model handles its own tools reliably; building
+  arbitrary widgets through Studio's agents needs a stronger one.
 - **AG Studio license**: AG Studio is commercial software. Put a trial or license key in `AG_STUDIO_LICENSE_KEY`; the
   server hands it to the page at runtime, so it never lands in the built files. Without a key Insights still works, with a
   watermark.

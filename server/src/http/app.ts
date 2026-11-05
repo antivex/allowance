@@ -9,6 +9,7 @@ import { describeRules, exampleRules, exampleRulesText, normalizeRules, type Rul
 import type { Config } from '../config.js';
 import type { EventBus } from '../events.js';
 import { createMcpServer, type PurchaseApi } from '../mcp/tools.js';
+import type { PayPalRecords } from '../paypal/records.js';
 import { RulesSchema } from '../policy/types.js';
 import type { Agent, Store } from '../store.js';
 import { VERSION } from '../version.js';
@@ -22,6 +23,8 @@ export interface AppDeps {
   bus: EventBus;
   /** The owner's password and sessions: every owner action needs them. */
   owner: OwnerAuth;
+  /** PayPal's records through its Agent Toolkit (read-only), to check the ledger; null in the offline simulation. */
+  records: PayPalRecords | null;
   chat: ChatClient | null;
   compiler: RulesCompiler | null;
   /** Built dashboard (vite build output), if any. */
@@ -35,7 +38,7 @@ type AgentRequest = Request & { agent?: Agent };
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
 export function createApp(deps: AppDeps): express.Express {
-  const { config, store, wallet, bus, chat, compiler, owner } = deps;
+  const { config, store, wallet, bus, chat, compiler, owner, records } = deps;
   const signedIn = (req: Request) => owner.check(ownerToken(req.get('cookie')));
   const app = express();
   app.disable('x-powered-by');
@@ -227,6 +230,50 @@ export function createApp(deps: AppDeps): express.Express {
   app.get('/api/purchases/:id', (req, res) => {
     const purchase = wallet.get(String(req.params.id));
     res.json({ purchase, events: store.listEvents(purchase.id) });
+  });
+
+  // What PayPal itself says about a purchase, through PayPal's Agent Toolkit (get_order), next to the ledger.
+  const OFFLINE = 'The offline simulation has no PayPal records to check.';
+  app.get('/api/purchases/:id/paypal', async (req, res) => {
+    const purchase = wallet.get(String(req.params.id));
+    if (!records) {
+      res.json({ available: false, reason: OFFLINE });
+      return;
+    }
+    if (!purchase.paypalOrderId) {
+      res.json({ available: true, check: null, reason: 'No PayPal order: Allowance decided before any money could move.' });
+      return;
+    }
+    res.json({ available: true, checkedAt: new Date().toISOString(), check: await records.check(purchase) });
+  });
+
+  // The whole ledger against PayPal's records: the Insights auditor's check_with_paypal tool calls this.
+  app.post('/api/paypal/reconcile', async (_req, res) => {
+    if (!records) {
+      res.json({ available: false, reason: OFFLINE });
+      return;
+    }
+    const all = store.listPurchases();
+    const withOrder = all.filter((purchase) => purchase.paypalOrderId).slice(0, 30);
+    const checks = [];
+    for (const purchase of withOrder) {
+      try {
+        checks.push(await records.check(purchase));
+      } catch (error) {
+        checks.push({ purchaseId: purchase.id, merchant: purchase.merchant, orderId: purchase.paypalOrderId, matches: false, paypal: `not checked: ${error instanceof Error ? error.message : String(error)}` });
+      }
+    }
+    res.json({
+      available: true,
+      checkedAt: new Date().toISOString(),
+      checks,
+      summary: {
+        checked: checks.length,
+        matching: checks.filter((check) => check.matches).length,
+        notMatching: checks.filter((check) => !check.matches).length,
+        withoutOrder: all.filter((purchase) => !purchase.paypalOrderId).length,
+      },
+    });
   });
 
   app.post('/api/purchases/:id/approve', async (req, res) => {

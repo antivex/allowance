@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { STATUS_TONE, formatDateTime, formatMoney, formatTime, timeLeft } from '../format';
-import { CATEGORY_LABELS, type Purchase, type PurchaseEvent } from '../types';
-import { SourceTag, StatusPill } from './ui';
+import { CATEGORY_LABELS, type PayPalCheckResult, type Purchase, type PurchaseEvent } from '../types';
+import { SourceTag, Spinner, StatusPill } from './ui';
 
 interface Props {
   purchase: Purchase;
@@ -13,6 +13,45 @@ interface Props {
 }
 
 const ICON = { approve: '✓', ask: '!', block: '✕' } as const;
+
+/** Asks PayPal itself, through its Agent Toolkit, what happened to this order, and compares it with the ledger. */
+function PayPalCheckRow({ purchaseId }: { purchaseId: string }) {
+  const [result, setResult] = useState<PayPalCheckResult | null>(null);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const check = async () => {
+    setWorking(true);
+    setError(null);
+    try {
+      setResult(await api.paypalCheck(purchaseId));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'PayPal did not answer.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const found = result?.check;
+  return (
+    <div className="paypal-check">
+      <button type="button" className="btn small" onClick={() => void check()} disabled={working}>
+        {working ? <Spinner /> : '⟳'} Check on PayPal
+      </button>
+      {found && (
+        <div className={`notice ${found.matches ? 'ok' : 'bad'}`}>
+          <strong>{found.matches ? '✓ Matches the ledger.' : '✕ Does not match the ledger.'}</strong> PayPal says: {found.paypal}.
+          {!found.matches && found.expected ? ` The ledger expects ${found.expected}.` : ''}
+          <div className="paypal-check-meta">
+            Read {result?.checkedAt ? formatTime(result.checkedAt) : ''} with PayPal's Agent Toolkit (get_order).
+          </div>
+        </div>
+      )}
+      {result && !found && <div className="notice">{result.reason}</div>}
+      {error && <div className="notice bad">{error}</div>}
+    </div>
+  );
+}
 
 export function PurchaseDrawer({ purchase, now, onClose, onApprove, onDeny }: Props) {
   const [events, setEvents] = useState<PurchaseEvent[]>([]);
@@ -198,6 +237,7 @@ export function PurchaseDrawer({ purchase, now, onClose, onApprove, onDeny }: Pr
             ) : (
               <div style={{ color: 'var(--muted)' }}>{purchase.status === 'blocked' ? 'No PayPal order was created.' : 'Nothing was sent to PayPal.'}</div>
             )}
+            {purchase.paypalOrderId && purchase.paypalMode === 'sandbox' && <PayPalCheckRow key={purchase.updatedAt} purchaseId={purchase.id} />}
             {purchase.error && (
               <div className="notice bad" style={{ marginTop: 8 }}>
                 {purchase.error}

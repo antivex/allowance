@@ -184,3 +184,31 @@ export interface Preview {
   ai: AiOutcome;
   final: { decision: Decision; source: DecisionSource; explanation: string };
 }
+
+/** One ledger row next to PayPal's own record of its order, checked through PayPal's Agent Toolkit. */
+export interface PayPalCheck {
+  purchaseId: string;
+  agent?: string;
+  merchant: string;
+  amount?: string;
+  ledger?: string;
+  expected?: string;
+  paypal: string;
+  matches: boolean;
+  orderId: string | null;
+}
+
+export interface PayPalCheckResult {
+  available: boolean;
+  reason?: string;
+  checkedAt?: string;
+  check: PayPalCheck | null;
+}
+
+export interface ReconcileResult {
+  available: boolean;
+  reason?: string;
+  checkedAt?: string;
+  checks?: PayPalCheck[];
+  summary?: { checked: number; matching: number; notMatching: number; withoutOrder: number };
+}

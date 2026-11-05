@@ -1,4 +1,4 @@
-import type { AppState, CompiledRules, Preview, Purchase, PurchaseEvent, Rules, RulesRecord, Agent } from './types';
+import type { AppState, CompiledRules, PayPalCheckResult, Preview, Purchase, PurchaseEvent, ReconcileResult, Rules, RulesRecord, Agent } from './types';
 
 export class ApiError extends Error {
   constructor(
@@ -38,6 +38,8 @@ export const api = {
   purchase: (id: string) => call<{ purchase: Purchase; events: PurchaseEvent[] }>('GET', `/api/purchases/${id}`),
   approve: (id: string) => call<Purchase>('POST', `/api/purchases/${id}/approve`),
   deny: (id: string) => call<Purchase>('POST', `/api/purchases/${id}/deny`),
+  paypalCheck: (id: string) => call<PayPalCheckResult>('GET', `/api/purchases/${id}/paypal`),
+  reconcile: () => call<ReconcileResult>('POST', '/api/paypal/reconcile'),
   compileRules: (text: string) => call<CompiledRules>('POST', '/api/rules/compile', { text }),
   saveRules: (text: string, rules: Rules, compiledBy: string) =>
     call<RulesRecord & { warnings: string[] }>('POST', '/api/rules', { text, rules, compiledBy }),
