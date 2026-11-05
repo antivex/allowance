@@ -145,6 +145,14 @@ function outcomeInWords(purchase: Purchase): string {
 const STOPPED = new Set<Purchase['status']>(['blocked', 'denied', 'expired']);
 
 /** Who kept the money from leaving, in words, or null for a purchase that was paid or is still waiting. */
+/** One word per ledger state for the PayPal check, which only has to say what PayPal should show. */
+const STATUS_WORD: Partial<Record<Purchase['status'], string>> = {
+  paid: 'payment captured',
+  on_hold: 'hold waiting for the owner',
+  denied: 'hold voided by the owner',
+  expired: 'hold voided after 24 hours',
+};
+
 function stoppedBy(purchase: Purchase): string | null {
   if (purchase.status === 'blocked') return purchase.decisionSource === 'ai' ? 'the AI review' : 'the rules';
   if (purchase.status === 'denied') return purchase.decisionSource === 'ai' ? 'the AI review held it and the owner denied it' : 'the owner denied it';
@@ -210,7 +218,7 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
             stopped_by: stoppedBy(p),
             why: p.explanation,
           }));
-        if (!rows.length) return ctx.success('No matching requests.', rows);
+        if (!rows.length) return ctx.success('No matching requests.');
         // Stopped attempts come first, in a list of their own, so a small model names every one of them.
         const stopped = rows.filter((row) => row.stopped);
         const others = rows.filter((row) => !row.stopped);
@@ -221,7 +229,16 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
         const summary = stopped.length
           ? `${plural(stopped.length, 'stopped attempt')} by ${plural(perAgent.size, 'agent')}: ${[...perAgent].map(([name, n]) => `${name} (${n})`).join(', ')}.`
           : 'Nothing was stopped.';
-        return ctx.success(JSON.stringify({ summary, stopped_attempts: stopped, other_requests: others }), rows);
+        // Short on purpose, and without a data copy (Studio would pass it to the model too): a local model often runs
+        // with a 4096-token context, and the whole chat has to fit in it.
+        const brief = (text: string) => (text.length > 110 ? `${text.slice(0, 107)}...` : text);
+        return ctx.success(
+          JSON.stringify({
+            summary,
+            stopped_attempts: stopped.map(({ agent, items, amount, stopped_by, why }) => ({ agent, items, amount, stopped_by, why: brief(why) })),
+            other_requests: others.map(({ agent, items, amount, outcome }) => ({ agent, items, amount, outcome })),
+          }),
+        );
       },
     });
     const paypalTool = api.defineAiTool({
@@ -237,12 +254,12 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
         const rows = data.checks.map((check) => {
           const purchase = byId.get(check.purchaseId);
           return {
-            agent: check.agent,
-            merchant: check.merchant,
+            item: purchase ? purchase.items.map((item) => item.name).join(' + ') : check.merchant,
             amount: check.amount,
-            ledger: purchase ? outcomeInWords(purchase) : check.ledger,
-            paypal_says: check.paypal,
+            ledger: purchase ? STATUS_WORD[purchase.status] ?? purchase.status : check.ledger,
             matches_ledger: check.matches,
+            // What PayPal says, in full, only where it disagrees with the ledger.
+            ...(check.matches ? {} : { paypal_says: check.paypal }),
           };
         });
         // Counted here, in words: a small model reads a voided hold as a payment if left to count by itself.
@@ -259,7 +276,7 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
         const inWords =
           `${count(total, 'PayPal order', 'PayPal orders')} checked: ${[...kinds].map(([kind, n]) => count(n, kind, PLURAL[kind] ?? kind)).join(', ')}. ` +
           (matching === total ? `All ${total} match the ledger.` : `${matching} of ${total} match the ledger.`);
-        return ctx.success(JSON.stringify({ in_words: inWords, summary: data.summary, checks: rows }), rows);
+        return ctx.success(JSON.stringify({ in_words: inWords, checks: rows }));
       },
     });
     const transactionsTool = api.defineAiTool({
@@ -271,7 +288,7 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
         const response = await fetch('/api/paypal/transactions');
         const data = (await response.json().catch(() => ({}))) as { available?: boolean; reason?: string; note?: string; transactions?: unknown[] };
         if (!response.ok || !data.available) return ctx.success(data.reason ?? 'PayPal could not be asked for its transaction list.');
-        return ctx.success(JSON.stringify({ note: data.note, transactions: (data.transactions ?? []).slice(0, 30) }), data.transactions);
+        return ctx.success(JSON.stringify({ note: data.note, transactions: (data.transactions ?? []).slice(0, 30) }));
       },
     });
     const chartTool = api.defineAiTool({
