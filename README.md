@@ -25,8 +25,10 @@ shop page, and Allowance and PayPal stop the money. **Devpost:** [devpost.com/so
 >
 > Open the one-time link `npm start` prints and choose an owner password. Press **Confirm rules** on the **Rules** tab,
 > then run `npm run demo` in a second terminal: a test agent obeys a note hidden on a shop page, and Allowance stops it.
-> Without PayPal credentials everything runs in a clearly labelled offline simulation. For the real PayPal sandbox and a
-> real local model (`npm run demo -- --llm`), see [Try it in five minutes](#try-it-in-five-minutes).
+> Without PayPal credentials everything runs in a clearly labelled offline simulation. Without [Ollama](https://ollama.com)
+> the AI review is off, so every purchase the rules would pay waits for you instead; `ollama pull qwen3.5:4b` turns it
+> on. For the real PayPal sandbox and a real local model (`npm run demo -- --llm`), see
+> [Try it in five minutes](#try-it-in-five-minutes).
 
 ## Why
 
