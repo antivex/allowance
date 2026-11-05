@@ -64,6 +64,8 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
    - **Decisions**, a second page with **Decision flow**, another custom widget: the money every agent asked for, from
      what the fixed rules alone would have done (pay, ask, block) to where it ended up (paid, held, denied, blocked).
      Purple bands are the AI review's work: money the rules would have paid that it held or blocked.
+
+     ![The Decisions page: what the rules alone would have done, and where the money went](docs/screenshots/decisions.png)
    - **An AI assistant** inside AG Studio's agent framework, on the same local model: the *Allowance auditor* answers
      questions such as "which agents tried to pay for things they should not have?" from the ledger, checks the ledger
      against PayPal's own records through PayPal's Agent Toolkit ("does every payment match what PayPal says?"), adds

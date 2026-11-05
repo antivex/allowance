@@ -119,23 +119,37 @@ export function chatCompletionsAdapter(endpoint: string): AgLlmAdapter {
   };
 }
 
-/** The whole story of a request in words, so a small model cannot mistake a hold the owner approved for a block. */
+/**
+ * The whole story of a request in words, so a small model cannot mistake a hold the owner approved for a block, and
+ * sees who stopped each attempt: a purchase the AI review held and the owner denied is an attempt that was stopped.
+ */
 function outcomeInWords(purchase: Purchase): string {
+  const heldBy = purchase.decisionSource === 'ai' ? 'held by the AI review' : 'held by the rules';
   switch (purchase.status) {
     case 'paid':
-      return purchase.decision === 'ask' ? 'held for the owner, who approved it: paid' : 'paid at once, within the rules';
+      return purchase.decision === 'ask' ? `${heldBy}, then approved by the owner: paid` : 'paid at once, within the rules';
     case 'on_hold':
     case 'settling':
-      return 'held: the money waits for the owner to approve or deny';
+      return `${heldBy}: the money waits for the owner to approve or deny`;
     case 'blocked':
       return purchase.decisionSource === 'ai' ? 'blocked by the AI review: no payment' : 'blocked by the rules: no payment';
     case 'denied':
-      return 'held, then denied by the owner: the hold was voided, nothing was paid';
+      return `${heldBy}, then denied by the owner: stopped, the hold was voided and nothing was paid`;
     case 'expired':
-      return 'held, then expired without an answer: the hold was voided';
+      return `${heldBy}, then expired without an answer: the hold was voided`;
     default:
       return purchase.status;
   }
+}
+
+const STOPPED = new Set<Purchase['status']>(['blocked', 'denied', 'expired']);
+
+/** Who kept the money from leaving, in words, or null for a purchase that was paid or is still waiting. */
+function stoppedBy(purchase: Purchase): string | null {
+  if (purchase.status === 'blocked') return purchase.decisionSource === 'ai' ? 'the AI review' : 'the rules';
+  if (purchase.status === 'denied') return purchase.decisionSource === 'ai' ? 'the AI review held it and the owner denied it' : 'the owner denied it';
+  if (purchase.status === 'expired') return 'nobody approved it in time: the hold was voided';
+  return null;
 }
 
 /** A widget's reference to a field of the requests table (Studio names fields `table.field`). */
@@ -166,7 +180,7 @@ interface LoosePage {
 }
 
 const AUDITOR_INSTRUCTIONS = `You are the Allowance auditor. Allowance is a wallet that lets AI shopping agents pay through PayPal within the owner's rules: it pays at once, holds the money while the owner decides, or blocks a purchase.
-To answer questions about agents, purchases, blocks or spending, call allowance_requests first and answer from what it returns, in two or three plain sentences for the owner: name the agents, the merchants, the amounts and who blocked what (the rules or the AI review).
+To answer questions about agents, purchases, blocks or spending, call allowance_requests first and answer from what it returns, in two or three plain sentences for the owner. For attempts that were stopped, use only the requests with stopped: true, and for each name the agent, what it tried to buy, the amount and stopped_by. A request with stopped: false was paid or is waiting: never call it stopped.
 When the owner asks whether the payments are right, or what PayPal really did, call check_with_paypal and say how many PayPal orders match the ledger; name any that do not.
 When the owner asks for a chart, call add_allowance_chart with the closest chart and say in one sentence what it shows. Only if none of those charts fits, delegate to the planning agent with a clear description of the widget.`;
 
@@ -188,8 +202,12 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
           .map((p) => ({
             agent: p.agentName,
             merchant: p.merchant,
+            items: p.items.map((item) => item.name).join(' + '),
             amount: `${(p.amountCents / 100).toFixed(2)} ${p.currency}`,
             outcome: outcomeInWords(p),
+            // Spelled out, so a small model cannot call a paid purchase "stopped" or miss a stopped one.
+            stopped: STOPPED.has(p.status),
+            stopped_by: stoppedBy(p),
             why: p.explanation,
           }));
         return ctx.success(rows.length ? JSON.stringify(rows) : 'No matching requests.', rows);
