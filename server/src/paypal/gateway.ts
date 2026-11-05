@@ -123,7 +123,17 @@ export class SandboxGateway implements PaymentGateway {
 
   async createOrder(input: OrderInput): Promise<OrderOutcome> {
     const payeeEmail = input.payeeEmail ?? this.payees[input.merchant.trim().toLowerCase()];
-    const order = await this.client.createOrder(buildOrderBody({ ...input, payeeEmail }), input.requestId);
+    const order = await this.client.createOrder(buildOrderBody({ ...input, payeeEmail }), input.requestId).catch((error: unknown) => {
+      // Tried on the sandbox on 5 Nov 2026: a wallet vaulted by this app pays this app's own business account, and
+      // PayPal answers BILLING_AGREEMENT_NOT_FOUND when the order names another merchant as the payee.
+      if (payeeEmail && error instanceof PayPalError && error.issue === 'BILLING_AGREEMENT_NOT_FOUND') {
+        throw new GatewayError(
+          'PAYEE_NOT_ONBOARDED',
+          `PayPal will not pay ${payeeEmail} from the wallet linked to this app (${error.summary}). The merchant must first be onboarded through PayPal's multiparty integration`,
+        );
+      }
+      throw error;
+    });
     if (order.status === 'PAYER_ACTION_REQUIRED') {
       throw new GatewayError('PAYER_ACTION_REQUIRED', 'PayPal wants the payer to approve again: link PayPal once more in Allowance.');
     }

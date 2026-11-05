@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PayPalClient, PayPalError, type Exchange } from '../src/paypal/client.js';
-import { SandboxGateway, buildOrderBody, type OrderInput } from '../src/paypal/gateway.js';
+import { GatewayError, SandboxGateway, buildOrderBody, type OrderInput } from '../src/paypal/gateway.js';
 import { parsePayees } from '../src/config.js';
 import { fixture, scriptedFetch } from './helpers/fixtures.js';
 
@@ -189,6 +189,29 @@ describe('order body', () => {
       other: 'o@x.io',
     });
     expect(() => parsePayees('Inkwell Supplies')).toThrow(/PAYPAL_PAYEES/);
+  });
+
+  it('explains why PayPal refuses to pay another merchant from the wallet this app linked', async () => {
+    const refused: Exchange = {
+      name: 'create-order-capture',
+      request: fixture('create-order-capture').request,
+      response: {
+        status: 422,
+        body: {
+          name: 'UNPROCESSABLE_ENTITY',
+          details: [{ issue: 'BILLING_AGREEMENT_NOT_FOUND', description: 'The requested Billing Agreement token was not found.' }],
+          message: 'The requested action could not be performed, semantically incorrect, or failed business validation.',
+          debug_id: 'ca55d0e20d9c1',
+        },
+      },
+    };
+    const script = scriptedFetch([fixture('oauth-token'), refused]);
+    const client = new PayPalClient({ clientId: 'test-client', clientSecret: 'test-secret', fetch: script.fetch });
+    const gateway = new SandboxGateway(client, { 'inkwell supplies': 'shop@business.example.com' });
+    const error = await gateway.createOrder(orderInput('create-order-capture')).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(GatewayError);
+    expect(error).toMatchObject({ code: 'PAYEE_NOT_ONBOARDED' });
+    expect((error as Error).message).toContain("onboarded through PayPal's multiparty integration");
   });
 
   it('keeps PayPal field limits', () => {

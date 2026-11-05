@@ -198,10 +198,23 @@ flowchart LR
 | Vault v3 | `POST /v3/vault/setup-tokens`, `POST /v3/vault/payment-tokens`, `DELETE /v3/vault/payment-tokens/{id}` | Link the owner's PayPal wallet once; unlink it |
 | Orders v2 | `POST /v2/checkout/orders` with `payment_source.paypal.vault_id`, intent `CAPTURE` or `AUTHORIZE` | Pay at once, or hold the money |
 | Payments v2 | `POST /v2/payments/authorizations/{id}/capture`, `POST /v2/payments/authorizations/{id}/void` | Your approve and deny buttons, and the 24-hour auto-void |
-| [PayPal Agent Toolkit](https://github.com/paypal/agent-toolkit) | `get_order` only (the `orders.get` action; nothing else is enabled) | **Check on PayPal** in each purchase's details, and the Insights auditor's `check_with_paypal` tool: the ledger next to PayPal's own record of every order |
+| [PayPal Agent Toolkit](https://github.com/paypal/agent-toolkit) | `get_order` and `list_transactions`, both read-only (the `orders.get` and `transactions.list` actions; nothing else is enabled) | **Check on PayPal** in each purchase's details, and the Insights auditor's `check_with_paypal` and `paypal_transactions` tools: the ledger next to PayPal's own record of every order. The transaction list needs the app's **Transaction search** feature, and new payments can take up to three hours to show up in it |
 
 Who gets the money: in the sandbox every order is paid to the business account of your PayPal REST app, which stands in
-for the shop. Paying each merchant's own PayPal account is the next step.
+for the shop.
+
+**We tried paying a merchant's own PayPal account.** `PAYPAL_PAYEES` names a merchant's PayPal account, and Allowance
+then puts it on the order as `purchase_units[].payee`. On 5 November 2026 we ran the same €38.97 purchase twice
+against the sandbox, from the same linked wallet:
+
+| Order | Payee | What PayPal answered |
+|---|---|---|
+| for Inkwell Supplies | a second sandbox business account (`sb-v6uah53192453@business.example.com`) | `422 UNPROCESSABLE_ENTITY`, issue `BILLING_AGREEMENT_NOT_FOUND`, debug id `ca55d0e20d9c1`. No order, nothing charged; the agent was told the payment did not go through |
+| for another shop name, no payee | the app's own business account (`sb-rfmie53732114@business.example.com`) | `201`, order `4E3966255B089844N`, hold `3M500963J48713848` (`CREATED`), then voided by the owner's Deny |
+
+So a wallet vaulted by one app pays that app's business account, and PayPal will not let it pay someone else's.
+Allowance now says so in plain words when it happens, and paying each merchant directly is the first production step
+below.
 
 ## AI used
 
@@ -289,7 +302,8 @@ npm run eval:ai      # the AI evaluation above, against your configured model
   MCP endpoint and their token, not that machine.
 - `npm audit` reports issues in packages that PayPal's Agent Toolkit 1.11 brings along (LangChain, the AI SDK, mathjs and
   their nested zod and uuid). Their fixes need major versions the toolkit does not support yet. Allowance enables only the
-  toolkit's read-only `get_order` tool and passes it nothing but order IDs from its own ledger.
+  toolkit's read-only `get_order` and `list_transactions` tools and passes them nothing but order IDs from its own
+  ledger and a date range.
 - This is a hackathon project that talks to the PayPal **sandbox**. Real money needs production credentials, real sign-in
   and a security review.
 
@@ -297,9 +311,10 @@ npm run eval:ai      # the AI evaluation above, against your configured model
 
 The decision layer (rules, AI review that can only tighten, holds, the owner's say) stays as it is. Three steps around it:
 
-1. **Pay the merchant, not the app.** Today every sandbox order goes to the app's own business account. In production
-   Allowance would onboard merchants through PayPal's multiparty (platform) integration and put each merchant on its
-   orders as the payee, or pay at merchants that accept agent-initiated PayPal payments.
+1. **Pay the merchant, not the app.** Today every sandbox order goes to the app's own business account, and naming
+   another merchant as the payee is refused (see [PayPal APIs used](#paypal-apis-used)). In production Allowance would
+   onboard merchants through PayPal's multiparty (platform) integration, so each merchant consents and is paid
+   directly, or pay at merchants that accept agent-initiated PayPal payments.
 2. **One wallet per owner, hosted.** Owner accounts instead of a single local password, each with its own vaulted
    PayPal wallet, and push notifications for held purchases, so the phone rings when an agent asks.
 3. **Narrower limits and a stronger review.** Budgets per agent and per merchant, next to today's per-category limits;

@@ -110,10 +110,10 @@ export function weekStart(now: Date): Date {
 }
 
 function describeError(error: unknown): string {
-  if (error instanceof PayPalError) return `${error.summary}: ${error.message}`;
-  if (error instanceof GatewayError) return error.message;
-  if (error instanceof Error) return error.message;
-  return String(error);
+  const text =
+    error instanceof PayPalError ? `${error.summary}: ${error.message}` : error instanceof Error ? error.message : String(error);
+  // The outcome adds its own full stop.
+  return text.replace(/\.+$/, '');
 }
 
 const SETTING = {
