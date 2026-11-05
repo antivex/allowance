@@ -70,7 +70,7 @@ export function AgentWatchlist({ widgetApi, dataMapping }: AgWidgetParams<Watchl
             <span className="paid">{format(paid, number(row, paid))} paid</span>
             <span className={`blocked ${blockedCount ? 'bad' : ''}`}>
               {blockedCount
-                ? `${blockedCount} stopped${byAi ? (byAi === blockedCount ? ', by the AI review' : `, ${byAi} by the AI review`) : ''}`
+                ? `${blockedCount} stopped${byAi ? (byAi === blockedCount ? ', caught by the AI review' : `, ${byAi} caught by the AI review`) : ''}`
                 : 'nothing stopped'}
             </span>
           </button>
@@ -87,7 +87,7 @@ export function watchlistForm(params: AgWidgetFormParams<WatchlistWidget>) {
       { key: 'agent', label: 'Agent' },
       { key: 'paid', label: 'Money paid' },
       { key: 'blocked', label: 'Stopped attempts' },
-      { key: 'aiBlocked', label: 'Stopped by the AI review' },
+      { key: 'aiBlocked', label: 'Caught by the AI review' },
     ],
   });
 }

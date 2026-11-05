@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { verifyMandate, type CartMandate, type IntentMandate, type PublicJwk } from '../server/src/mandate.js';
+import { verifyMandate, type IntentMandate, type PublicJwk } from '../server/src/mandate.js';
 import type { PurchaseRequest } from '../server/src/policy/types.js';
 import type { PurchaseOutcome } from '../server/src/wallet.js';
 
@@ -174,14 +174,23 @@ async function publicKeys(): Promise<{ keys: PublicJwk[] }> {
   return jwks;
 }
 
-/** A paid purchase comes with its cart signed by the owner's Allowance: check it like a merchant would. */
+/**
+ * A paid purchase comes back with its cart signed by Allowance. The agent places the order with the shop and hands it
+ * the signed cart; the shop checks it with Allowance's public key and its own catalog before it confirms.
+ */
 async function showCart(outcome: PurchaseOutcome): Promise<void> {
   if (!outcome.cart_mandate) return;
   try {
-    const cart = verifyMandate<CartMandate>(outcome.cart_mandate, await publicKeys());
-    console.log(`      ${green('✓')} ${dim(`signed cart ${cart.jti}: ${cart.amount} ${cart.currency}, checked with the owner's public key`)}`);
-  } catch (error) {
-    console.log(red(`      ✕ the signed cart does not check out: ${error instanceof Error ? error.message : String(error)}`));
+    const response = await fetch(`${SHOP_URL}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cart_mandate: outcome.cart_mandate }),
+    });
+    const answer = (await response.json()) as { order_id?: string; reason?: string };
+    if (response.ok) console.log(`      ${green('✓')} ${dim(`order ${answer.order_id}: ${outcome.merchant} checked the signed cart and confirmed it`)}`);
+    else console.log(red(`      ✕ ${outcome.merchant} refused the order: ${answer.reason ?? response.status}`));
+  } catch {
+    console.log(dim(`      (${outcome.merchant} did not answer; the signed cart is in the outcome)`));
   }
 }
 
@@ -393,13 +402,13 @@ async function main(): Promise<void> {
     const view = result.structuredContent as { mandate: string; summary: string } | undefined;
     if (result.isError || !view) throw new Error(textOf(result));
     verifyMandate<IntentMandate>(view.mandate, await publicKeys());
-    console.log(dim(`  Signed spending mandate: ${view.summary.replace(/^Without asking the owner: /, '')}`));
-    console.log(`  ${green('✓')} ${dim("mandate checked with the owner's public key (/.well-known/jwks.json)")}`);
+    console.log(dim(`  Signed spending mandate: ${view.summary.replace(/^Without asking the owner: /, '').replace(/ Anything else waits for the owner\.$/, '')}`));
   } catch (error) {
     console.log(dim(`  No signed mandate: ${error instanceof Error ? error.message : String(error)}`));
   }
 
-  // The model sees Allowance's MCP tools exactly as published, plus a tool to read web pages.
+  // The model sees Allowance's purchase tools as published (the signed mandate stays with the harness), plus a tool to
+  // read web pages.
   const modelTools = [
     {
       type: 'function',

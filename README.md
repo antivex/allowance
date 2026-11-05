@@ -212,7 +212,8 @@ against the sandbox, from the same linked wallet:
 | for Inkwell Supplies | a second sandbox business account (`sb-v6uah53192453@business.example.com`) | `422 UNPROCESSABLE_ENTITY`, issue `BILLING_AGREEMENT_NOT_FOUND`, debug id `ca55d0e20d9c1`. No order, nothing charged; the agent was told the payment did not go through |
 | for another shop name, no payee | the app's own business account (`sb-rfmie53732114@business.example.com`) | `201`, order `4E3966255B089844N`, hold `3M500963J48713848` (`CREATED`), then voided by the owner's Deny |
 
-So a wallet vaulted by one app pays that app's business account, and PayPal will not let it pay someone else's.
+So, without a partner (multiparty) integration, a wallet vaulted by one app pays that app's business account, and PayPal
+refuses another payee.
 Allowance now says so in plain words when it happens, and paying each merchant directly is the first production step
 below.
 

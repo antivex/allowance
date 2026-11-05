@@ -330,11 +330,11 @@ export function Insights({ rows, currency }: { rows: Purchase[]; currency: strin
       { id: 'blocked', name: 'Blocked attempts', ...count },
       { id: 'aiBlocked', name: 'Blocked by the AI review', ...count },
       { id: 'stopped', name: 'Stopped attempts', ...count },
-      { id: 'aiStopped', name: 'Stopped by the AI review', ...count },
+      { id: 'aiStopped', name: 'Caught by the AI review', ...count },
       { id: 'rulesSaid', name: 'Rules said', ...text },
       { id: 'asked', name: 'Asked for', ...money },
       { id: 'stoppedByRules', name: 'Blocked by the rules', ...money },
-      { id: 'stoppedByAi', name: 'Held back by the AI review', ...money },
+      { id: 'stoppedByAi', name: 'Money the AI caught', ...money },
       { id: 'why', name: 'Why', ...text },
     ] as unknown as AgFieldDefinition[];
     const ordered = [...rows].sort((a, b) => OUTCOME_ORDER.indexOf(a.status) - OUTCOME_ORDER.indexOf(b.status));

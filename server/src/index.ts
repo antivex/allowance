@@ -14,7 +14,7 @@ import { PayPalRecords } from './paypal/records.js';
 import { createShopApp } from './shop.js';
 import { Store } from './store.js';
 import { VERSION } from './version.js';
-import { Mandates } from './mandate.js';
+import { Mandates, type PublicJwk } from './mandate.js';
 import { Wallet } from './wallet.js';
 
 // Both server/src/index.ts (dev) and dist/server/index.js (built) sit two folders below the project root.
@@ -114,7 +114,11 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 });
 
 if (config.shopPort) {
-  createShopApp(join(root, 'demo', 'shop'), config.currency)
+  // The shop checks signed carts like any merchant would: with Allowance's public key, fetched from its public address.
+  const jwksUrl = `${config.publicUrl.replace(/\/$/, '')}/.well-known/jwks.json`;
+  createShopApp(join(root, 'demo', 'shop'), config.currency, {
+    keys: async () => (await (await fetch(jwksUrl)).json()) as { keys: PublicJwk[] },
+  })
     .listen(config.shopPort, config.host)
     .on('error', (error: NodeJS.ErrnoException) => {
       console.error(`Demo shop not started (${error.code ?? error.message}).`);
