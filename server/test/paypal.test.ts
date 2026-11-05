@@ -30,7 +30,7 @@ function orderInput(name: 'create-order-capture' | 'create-order-authorize'): Or
   };
 }
 
-describe('PayPal client against recorded sandbox exchanges', () => {
+describe('PayPal client against request/response fixtures written from the API reference', () => {
   it('pays from the linked wallet in one call when the rules approve (intent CAPTURE)', async () => {
     const { gateway, sent, remaining } = clientWith([fixture('oauth-token'), fixture('create-order-capture')]);
     const outcome = await gateway.createOrder(orderInput('create-order-capture'));

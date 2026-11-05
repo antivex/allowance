@@ -19,8 +19,8 @@ type Row = Record<string, unknown>;
 type ResolvedField = AgWidgetFieldReference & { key: string };
 
 /**
- * A custom AG Studio widget: one card per agent with what it paid and what Allowance blocked,
- * agents with blocked attempts first. A click cross-filters the whole dashboard to that agent.
+ * A custom AG Studio widget: one card per agent with what it paid and what Allowance stopped (blocked, or held and then
+ * denied), agents with stopped attempts first. A click cross-filters the whole dashboard to that agent.
  */
 export function AgentWatchlist({ widgetApi, dataMapping }: AgWidgetParams<WatchlistWidget>) {
   const [agent, paid, blocked, ai] = (['agent', 'paid', 'blocked', 'aiBlocked'] as const).map(
@@ -69,7 +69,9 @@ export function AgentWatchlist({ widgetApi, dataMapping }: AgWidgetParams<Watchl
             <span className="who">{format(agent, name)}</span>
             <span className="paid">{format(paid, number(row, paid))} paid</span>
             <span className={`blocked ${blockedCount ? 'bad' : ''}`}>
-              {blockedCount ? `${blockedCount} blocked${byAi ? `, ${byAi} by the AI review` : ''}` : 'nothing blocked'}
+              {blockedCount
+                ? `${blockedCount} stopped${byAi ? (byAi === blockedCount ? ', by the AI review' : `, ${byAi} by the AI review`) : ''}`
+                : 'nothing stopped'}
             </span>
           </button>
         );
@@ -84,7 +86,7 @@ export function watchlistForm(params: AgWidgetFormParams<WatchlistWidget>) {
     dataMappingItems: [
       { key: 'agent', label: 'Agent' },
       { key: 'paid', label: 'Money paid' },
-      { key: 'blocked', label: 'Blocked attempts' },
+      { key: 'blocked', label: 'Stopped attempts' },
       { key: 'aiBlocked', label: 'Stopped by the AI review' },
     ],
   });

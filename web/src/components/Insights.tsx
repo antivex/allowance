@@ -58,7 +58,7 @@ const widgets = (config: AgWidgetsConfig) =>
         form: watchlistForm,
         defaultSize: { width: 360, height: 300 },
         minSize: { width: 240, height: 160 },
-        ai: { description: 'Agents ranked by blocked attempts, with the money each one paid. Clicking an agent filters the dashboard to it.' },
+        ai: { description: 'Agents ranked by stopped attempts (blocked, or held and denied), with the money each one paid. Clicking an agent filters the dashboard to it.' },
       },
       {
         id: 'decision-flow',
@@ -102,6 +102,8 @@ function toRow(purchase: Purchase) {
   const amount = purchase.amountCents / 100;
   const held = purchase.status === 'on_hold' || purchase.status === 'settling';
   const blocked = purchase.status === 'blocked';
+  // Stopped: no money left, whether a check blocked it or the owner denied a hold (or let it expire).
+  const stopped = blocked || purchase.status === 'denied' || purchase.status === 'expired';
   return {
     time: purchase.createdAt,
     agent: purchase.agentName,
@@ -116,6 +118,9 @@ function toRow(purchase: Purchase) {
     declined: purchase.status === 'denied' || purchase.status === 'expired' ? amount : 0,
     blocked: blocked ? 1 : 0,
     aiBlocked: blocked && purchase.decisionSource === 'ai' ? 1 : 0,
+    kept: stopped ? amount : 0,
+    stopped: stopped ? 1 : 0,
+    aiStopped: stopped && purchase.decisionSource === 'ai' ? 1 : 0,
     rulesSaid: RULES_SAID[purchase.policyDecision],
     // Money that never left: what the AI review held or blocked and was not paid, and what the rules blocked.
     stoppedByAi: purchase.decisionSource === 'ai' && purchase.status !== 'paid' ? amount : 0,
@@ -196,7 +201,7 @@ const INITIAL_STATE = {
               columnSeparator: { enabled: true, width: 1, color: '#262e3b' },
             },
           },
-          dataMapping: { values: [field('paid', 'sum'), field('held', 'sum'), field('blockedAmount', 'sum'), field('aiBlocked', 'sum')] },
+          dataMapping: { values: [field('paid', 'sum'), field('held', 'sum'), field('kept', 'sum'), field('aiStopped', 'sum')] },
         },
         byAgent: {
           type: 'bar-chart-stacked',
@@ -219,7 +224,7 @@ const INITIAL_STATE = {
         watchlist: {
           type: 'agent-watchlist',
           format: { title: { text: 'Agent watchlist', enabled: true } },
-          dataMapping: { agent: [field('agent')], paid: [field('paid', 'sum')], blocked: [field('blocked', 'sum')], aiBlocked: [field('aiBlocked', 'sum')] },
+          dataMapping: { agent: [field('agent')], paid: [field('paid', 'sum')], blocked: [field('stopped', 'sum')], aiBlocked: [field('aiStopped', 'sum')] },
         },
         requests: {
           type: 'grid',
@@ -319,10 +324,13 @@ export function Insights({ rows, currency }: { rows: Purchase[]; currency: strin
       { id: 'amount', name: 'Amount', ...money },
       { id: 'paid', name: 'Paid', ...money },
       { id: 'held', name: 'Held, not charged', ...money },
-      { id: 'blockedAmount', name: 'Kept from leaving', ...money },
+      { id: 'blockedAmount', name: 'Blocked', ...money },
+      { id: 'kept', name: 'Kept from leaving', ...money },
       { id: 'declined', name: 'Denied or expired', ...money },
       { id: 'blocked', name: 'Blocked attempts', ...count },
-      { id: 'aiBlocked', name: 'Stopped by the AI review', ...count },
+      { id: 'aiBlocked', name: 'Blocked by the AI review', ...count },
+      { id: 'stopped', name: 'Stopped attempts', ...count },
+      { id: 'aiStopped', name: 'Stopped by the AI review', ...count },
       { id: 'rulesSaid', name: 'Rules said', ...text },
       { id: 'asked', name: 'Asked for', ...money },
       { id: 'stoppedByRules', name: 'Blocked by the rules', ...money },

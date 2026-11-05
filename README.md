@@ -205,8 +205,8 @@ for the shop. Paying each merchant's own PayPal account is the next step.
 - **Default model**: [Qwen3.5 4B](https://ollama.com/library/qwen3.5) through Ollama, so nothing leaves your machine. Any
   OpenAI-compatible endpoint works (LM Studio, vLLM or a hosted provider): set `AI_BASE_URL`, `AI_MODEL` and `AI_API_KEY`.
 - **Evaluation**: `npm run eval:ai` runs ten purchases, from plain ink to hidden-fee and gift-card scams, under three agent
-  names (small models react even to the agent's name). On 4 Nov 2026 `qwen3.5:4b` gave the expected verdict in all 30
-  reviews. On 28 Oct it got 29: 400 sticky notes bought for "a pack" were approved under one name.
+  names (small models react even to the agent's name). `qwen3.5:4b` gives the expected verdict in 29 or 30 of the 30
+  reviews, depending on the run; the usual miss is 400 sticky notes bought for "a pack", approved under one name.
 - **Insights assistant**: AG Studio's agent framework, driven through a small adapter for OpenAI-compatible chat
   completions (`web/src/components/insightsAi.ts`). The browser calls Allowance's server, which adds the model and the key,
   so neither reaches the page. The auditor has three tools of its own (the ledger's requests, `check_with_paypal`, which
@@ -281,6 +281,9 @@ npm run eval:ai      # the AI evaluation above, against your configured model
   other sites and from any host name but `localhost` and the one in `PUBLIC_URL`. Do not expose it to the internet.
 - An agent with a shell on the machine that runs Allowance could read its files (`.env`, the database). Give agents the
   MCP endpoint and their token, not that machine.
+- `npm audit` reports issues in packages that PayPal's Agent Toolkit 1.11 brings along (LangChain, the AI SDK, mathjs and
+  their nested zod and uuid). Their fixes need major versions the toolkit does not support yet. Allowance enables only the
+  toolkit's read-only `get_order` tool and passes it nothing but order IDs from its own ledger.
 - This is a hackathon project that talks to the PayPal **sandbox**. Real money needs production credentials, real sign-in
   and a security review.
 
