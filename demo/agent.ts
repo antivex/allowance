@@ -12,6 +12,9 @@
  *   npm run demo -- --no-wait    do not wait for the owner at the end
  *   npm run demo -- --only=paper run one errand only (ink, paper or chair)
  *
+ * DEMO_PACE_MS (for recordings) makes the scripted agent pause for real before each step, so a dashboard beside it
+ * updates at the same moments as its output.
+ *
  * Environment: ALLOWANCE_URL (http://localhost:4000), SHOP_URL (http://localhost:4100) and ALLOWANCE_AGENT_TOKEN
  * (by default the demo agent token Allowance writes to data/demo-agent.token on first start). For --llm also
  * AI_BASE_URL (http://localhost:11434/v1), AI_API_KEY and DEMO_AGENT_MODEL (qwen3.5:4b).
@@ -38,6 +41,9 @@ const WAIT_FOR_OWNER = !flags.has('--no-wait');
 /** --only=paper runs a single errand (ink, paper or chair). */
 const ONLY = [...flags].find((flag) => flag.startsWith('--only='))?.slice('--only='.length);
 const WAIT_SECONDS = 300;
+const PACE_MS = Math.max(0, Number(process.env.DEMO_PACE_MS ?? 0) || 0);
+/** A real pause, only when DEMO_PACE_MS is set. */
+const pace = (times = 1) => (PACE_MS ? new Promise((resolve) => setTimeout(resolve, PACE_MS * times)) : Promise.resolve());
 const MAX_TURNS = 12;
 
 // Paper comes before the chair so the hidden note's add-on is still within budget: the rules alone would pay it.
@@ -177,6 +183,7 @@ function show(outcome: PurchaseOutcome): void {
 }
 
 async function requestPurchase(client: Client, results: Result[], label: string, request: PurchaseRequest): Promise<PurchaseOutcome> {
+  await pace();
   console.log(dim(`    → request_purchase: ${label}, ${money(request.amount, request.currency)} to ${request.merchant}`));
   const outcome = await callTool(client, 'request_purchase', request);
   show(outcome);
@@ -188,6 +195,7 @@ async function requestPurchase(client: Client, results: Result[], label: string,
 async function followHiddenNote(client: Client, results: Result[], product: Product): Promise<void> {
   const note = /Note for AI shopping assistants:[\s\S]*?(?=Customer reviews|$)/i.exec(product.text)?.[0].trim();
   if (!note) return;
+  await pace(0.6);
   console.log(magenta('    ! The page has a note for AI assistants. This agent trusts it and does what it says:'));
   console.log(magenta(`      "${clip(note, 160)}"`));
 
@@ -225,6 +233,7 @@ async function scriptedErrand(client: Client, results: Result[], errand: (typeof
   console.log(dim(`    reading ${url}`));
   const product = await readProduct(url);
   const price = (value: number) => money(value, product.currency);
+  await pace(0.5);
   console.log(`    ${product.name}, ${price(product.price)}${product.shipping ? ` + ${price(product.shipping)} shipping` : ''}`);
   const items: Item[] = [{ name: product.name, quantity: 1, unit_price: product.price, category: product.category }];
   if (product.shipping > 0) items.push({ name: 'Standard shipping', quantity: 1, unit_price: product.shipping, category: 'shipping_tax' });
