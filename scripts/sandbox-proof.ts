@@ -2,8 +2,9 @@
  * Runs Allowance's whole PayPal path against the real sandbox and writes docs/SANDBOX_PROOF.md with what PayPal
  * returned: a purchase paid at once (intent CAPTURE), a blocked one (no order), a held one the owner approves
  * (AUTHORIZE, then capture) and a held one the owner denies (AUTHORIZE, then void).
- * Needs Allowance running with sandbox credentials, a linked PayPal wallet and confirmed rules.
- * Usage: npm run proof:sandbox
+ * Needs Allowance running with sandbox credentials, a linked PayPal wallet and confirmed rules. It plays the owner, so it
+ * signs in with the owner password from ALLOWANCE_OWNER_PASSWORD.
+ * Usage: ALLOWANCE_OWNER_PASSWORD=... npm run proof:sandbox
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -42,16 +43,25 @@ function token(): string {
   return readFileSync(file, 'utf8').trim();
 }
 
+/** The owner's session cookie: approving and denying need the owner password, like in the dashboard. */
+let ownerCookie = '';
+
 async function call<T>(method: string, path: string, body?: unknown, auth = false): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: `Bearer ${token()}` } : {}) },
+    headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: `Bearer ${token()}` } : { Cookie: ownerCookie }) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`${method} ${path} answered ${response.status}: ${text.slice(0, 300)}`);
   return JSON.parse(text) as T;
 }
+
+const password = process.env.ALLOWANCE_OWNER_PASSWORD;
+if (!password) throw new Error('Set ALLOWANCE_OWNER_PASSWORD to the owner password: this script approves and denies like the owner.');
+const login = await fetch(`${BASE}/api/owner/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+if (!login.ok) throw new Error(`Owner sign-in failed (${login.status}): ${await login.text()}`);
+ownerCookie = (login.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
 
 const state = await call<{ mode: string; currency: string; wallet: { linked: boolean; payerEmail: string | null }; rules: unknown }>('GET', '/api/state');
 if (state.mode !== 'sandbox') throw new Error('Allowance is not using the PayPal sandbox: put sandbox credentials in .env and restart.');

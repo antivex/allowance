@@ -10,6 +10,9 @@ export class ApiError extends Error {
   }
 }
 
+/** Fired when the server says the owner's session is gone: the dashboard goes back to the sign-in screen. */
+export const SIGNED_OUT = 'allowance:signed-out';
+
 async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
     method,
@@ -17,9 +20,17 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Pr
     body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
   });
   const data = (await response.json().catch(() => ({}))) as { error?: string; issues?: string[] };
+  if (response.status === 401 && !path.startsWith('/api/owner')) window.dispatchEvent(new Event(SIGNED_OUT));
   if (!response.ok) throw new ApiError(data.error ?? `HTTP ${response.status}`, response.status, data.issues ?? []);
   return data as T;
 }
+
+export const owner = {
+  status: () => call<{ passwordSet: boolean; signedIn: boolean }>('GET', '/api/owner'),
+  setup: (code: string, password: string) => call<{ ok: true }>('POST', '/api/owner/setup', { code, password }),
+  login: (password: string) => call<{ ok: true }>('POST', '/api/owner/login', { password }),
+  logout: () => call<{ ok: true }>('POST', '/api/owner/logout'),
+};
 
 export const api = {
   state: () => call<AppState>('GET', '/api/state'),

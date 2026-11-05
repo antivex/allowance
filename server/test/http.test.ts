@@ -7,6 +7,7 @@ import { EXAMPLE_RULES, EXAMPLE_RULES_TEXT } from '../src/ai/compiler.js';
 import type { Config } from '../src/config.js';
 import { EventBus } from '../src/events.js';
 import { createApp } from '../src/http/app.js';
+import { OWNER_COOKIE, OwnerAuth } from '../src/http/owner.js';
 import { Store } from '../src/store.js';
 import { Wallet, type PurchaseOutcome } from '../src/wallet.js';
 import { FakeGateway, FakeReviewer } from './helpers/fakes.js';
@@ -31,11 +32,16 @@ const INK = {
   reason: 'The owner asked me to restock printer ink.',
 };
 
+const PASSWORD = 'correct horse battery';
+
 describe('HTTP API and MCP endpoint', () => {
   let server: Server;
   let base: string;
   let token: string;
   let gateway: FakeGateway;
+  /** The signed-in owner's cookie, as the dashboard sends it. */
+  let ownerCookie: string;
+  const asOwner = (extra: Record<string, string> = {}) => ({ 'Content-Type': 'application/json', Cookie: ownerCookie, ...extra });
 
   beforeEach(async () => {
     const store = new Store(':memory:');
@@ -54,7 +60,9 @@ describe('HTTP API and MCP endpoint', () => {
     await wallet.ensureSimulatedLink();
     store.saveRules(EXAMPLE_RULES_TEXT, EXAMPLE_RULES, 'test', new Date());
     token = store.createAgent('Test agent', new Date()).token;
-    const app = createApp({ config: CONFIG, store, wallet, bus, chat: null, compiler: null, webDir: '/nonexistent', stdioEntry: '/x/stdio.js' });
+    const owner = new OwnerAuth(store);
+    ownerCookie = `${OWNER_COOKIE}=${await owner.setup(owner.setupCode!, PASSWORD)}`;
+    const app = createApp({ config: CONFIG, store, wallet, bus, owner, chat: null, compiler: null, webDir: '/nonexistent', stdioEntry: '/x/stdio.js' });
     server = app.listen(0, '127.0.0.1');
     await new Promise((resolve) => server.once('listening', resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -137,7 +145,7 @@ describe('HTTP API and MCP endpoint', () => {
 
     const approve = await fetch(`${base}/api/purchases/${held.request_id}/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: base, 'Sec-Fetch-Site': 'same-origin' },
+      headers: asOwner({ Origin: base, 'Sec-Fetch-Site': 'same-origin' }),
       body: '{}',
     });
     expect(approve.status).toBe(200);
@@ -145,10 +153,61 @@ describe('HTTP API and MCP endpoint', () => {
 
     const again = await fetch(`${base}/api/purchases/${held.request_id}/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: asOwner(),
       body: '{}',
     });
     expect(again.status).toBe(409);
+  });
+
+  it('keeps every owner action behind the owner password', async () => {
+    const held = (await (
+      await fetch(`${base}/api/agent/purchases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...INK, items: [{ ...INK.items[0], unit_price: 89 }], amount: 89 }),
+      })
+    ).json()) as PurchaseOutcome;
+
+    // A program on the same machine, with or without an agent token, cannot approve or change anything.
+    const callers: Record<string, string>[] = [
+      { 'Content-Type': 'application/json' },
+      { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    ];
+    for (const headers of callers) {
+      const approve = await fetch(`${base}/api/purchases/${held.request_id}/approve`, { method: 'POST', headers, body: '{}' });
+      expect(approve.status).toBe(401);
+      const rules = await fetch(`${base}/api/rules`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ text: 'anything', rules: { ...EXAMPLE_RULES, autoApproveMax: 100000 }, compiledBy: 'agent' }),
+      });
+      expect(rules.status).toBe(401);
+    }
+    expect((await fetch(`${base}/api/state`)).status).toBe(401);
+    expect(await (await fetch(`${base}/api/owner`)).json()).toEqual({ passwordSet: true, signedIn: false });
+    expect(gateway.calls.filter((call) => call.startsWith('capture'))).toEqual([]);
+
+    // The owner signs in with the password and gets a session cookie.
+    const wrong = await fetch(`${base}/api/owner/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'guess' }) });
+    expect(wrong.status).toBe(401);
+    const login = await fetch(`${base}/api/owner/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: PASSWORD }) });
+    expect(login.status).toBe(200);
+    const setCookie = login.headers.get('set-cookie') ?? '';
+    expect(setCookie).toMatch(/HttpOnly/i);
+    expect(setCookie).toMatch(/SameSite=Lax/i);
+    const cookie = setCookie.split(';')[0]!;
+    expect((await fetch(`${base}/api/state`, { headers: { Cookie: cookie } })).status).toBe(200);
+
+    // Signing out ends that session.
+    await fetch(`${base}/api/owner/logout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: '{}' });
+    expect((await fetch(`${base}/api/state`, { headers: { Cookie: cookie } })).status).toBe(401);
+  });
+
+  it('stops guessing the owner password after five wrong tries a minute', async () => {
+    const tryPassword = (password: string) =>
+      fetch(`${base}/api/owner/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+    for (let i = 0; i < 5; i++) expect((await tryPassword(`wrong-${i}`)).status).toBe(401);
+    expect((await tryPassword(PASSWORD)).status).toBe(429);
   });
 
   it('refuses requests addressed to another host name (DNS rebinding)', async () => {

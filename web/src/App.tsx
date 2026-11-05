@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ApiError, api } from './api';
+import { ApiError, SIGNED_OUT, api, owner } from './api';
 import { ApprovalCards } from './components/ApprovalCards';
 import { Kpis } from './components/Kpis';
 import { Ledger, type LedgerContext } from './components/Ledger';
@@ -186,6 +186,14 @@ export function App() {
             <span className={`dot ${live ? 'live' : 'bad'}`} />
             {live ? 'Live' : 'Reconnecting…'}
           </span>
+          <button
+            type="button"
+            className="chip chip-button"
+            title="Sign out: approving and changing rules need the owner password again"
+            onClick={() => void owner.logout().finally(() => window.dispatchEvent(new Event(SIGNED_OUT)))}
+          >
+            Lock
+          </button>
         </div>
       </header>
 

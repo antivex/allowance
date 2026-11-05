@@ -7,6 +7,7 @@ import { AiReviewer } from './ai/reviewer.js';
 import { ConfigError, loadConfig, loadDotEnv } from './config.js';
 import { EventBus } from './events.js';
 import { createApp } from './http/app.js';
+import { OwnerAuth } from './http/owner.js';
 import { PayPalClient } from './paypal/client.js';
 import { SandboxGateway, SimulatedGateway, type PaymentGateway } from './paypal/gateway.js';
 import { createShopApp } from './shop.js';
@@ -74,11 +75,15 @@ if (store.listAgents().length === 0) {
   writeFileSync(join(config.dataDir, 'demo-agent.token'), `${token}\n`, { mode: 0o600 });
 }
 
+// Approving, denying, rules, agents and the PayPal link need the owner's password.
+const owner = new OwnerAuth(store);
+
 const app = createApp({
   config,
   store,
   wallet,
   bus,
+  owner,
   chat,
   compiler: chat ? new RulesCompiler(chat, config.currency) : null,
   webDir: join(root, 'dist', 'web'),
@@ -94,6 +99,8 @@ const server = app.listen(config.port, config.host, () => {
     `  AI review     ${chat ? `${config.ai.model} via ${config.ai.baseUrl}` : 'off'}`,
   ];
   if (config.shopPort) lines.push(`  Demo shop     http://localhost:${config.shopPort}`);
+  // The one-time link goes to this terminal only: whoever started Allowance chooses the owner password.
+  if (owner.setupCode) lines.push('', `  First run: open ${config.publicUrl}/?setup=${owner.setupCode}`, '  to choose the owner password.');
   console.log(lines.join('\n'));
 });
 server.on('error', (error: NodeJS.ErrnoException) => {

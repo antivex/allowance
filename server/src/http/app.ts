@@ -13,12 +13,15 @@ import { RulesSchema } from '../policy/types.js';
 import type { Agent, Store } from '../store.js';
 import { VERSION } from '../version.js';
 import { ConflictError, InvalidRequestError, NotFoundError, type Wallet } from '../wallet.js';
+import { OWNER_COOKIE, OwnerError, ownerToken, type OwnerAuth } from './owner.js';
 
 export interface AppDeps {
   config: Config;
   store: Store;
   wallet: Wallet;
   bus: EventBus;
+  /** The owner's password and sessions: every owner action needs them. */
+  owner: OwnerAuth;
   chat: ChatClient | null;
   compiler: RulesCompiler | null;
   /** Built dashboard (vite build output), if any. */
@@ -32,7 +35,8 @@ type AgentRequest = Request & { agent?: Agent };
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
 export function createApp(deps: AppDeps): express.Express {
-  const { config, store, wallet, bus, chat, compiler } = deps;
+  const { config, store, wallet, bus, chat, compiler, owner } = deps;
+  const signedIn = (req: Request) => owner.check(ownerToken(req.get('cookie')));
   const app = express();
   app.disable('x-powered-by');
   // DNS-rebinding protection: a hostile page cannot reach this server through another host name.
@@ -85,9 +89,13 @@ export function createApp(deps: AppDeps): express.Express {
     res.json(wallet.outcomeFor(req.agent!.id, String(req.params.id)));
   });
 
-  // PayPal sends the owner back here after the wallet approval (a top-level GET navigation).
+  // PayPal sends the owner back here after the wallet approval (a top-level GET navigation, which carries the session).
   let linkError: string | null = null;
   app.get('/api/paypal/return', async (req, res) => {
+    if (!signedIn(req)) {
+      res.redirect('/?paypal=signin');
+      return;
+    }
     const returned = req.query.approval_token_id ?? req.query.approval_session_id ?? req.query.token;
     try {
       await wallet.finishLink(typeof returned === 'string' ? returned : null);
@@ -117,6 +125,46 @@ export function createApp(deps: AppDeps): express.Express {
       return;
     }
     next();
+  });
+
+  // The owner signs in with a password. The first one is chosen through the one-time link printed in the server's terminal.
+  const startSession = (res: Response, token: string) => {
+    res.cookie(OWNER_COOKIE, token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: owner.sessionSeconds * 1000,
+      secure: config.publicUrl.startsWith('https://'),
+    });
+  };
+  const PasswordSchema = z.object({ password: z.string().max(200) });
+
+  app.get('/api/owner', (req, res) => {
+    res.set('Cache-Control', 'no-store').json({ passwordSet: owner.passwordSet(), signedIn: signedIn(req) });
+  });
+
+  app.post('/api/owner/setup', async (req, res) => {
+    const { code, password } = PasswordSchema.extend({ code: z.string().max(200) }).parse(req.body);
+    startSession(res, await owner.setup(code, password));
+    res.json({ ok: true });
+  });
+
+  app.post('/api/owner/login', async (req, res) => {
+    const { password } = PasswordSchema.parse(req.body);
+    startSession(res, await owner.login(password));
+    res.json({ ok: true });
+  });
+
+  app.post('/api/owner/logout', (req, res) => {
+    owner.logout(ownerToken(req.get('cookie')));
+    res.clearCookie(OWNER_COOKIE, { path: '/' });
+    res.json({ ok: true });
+  });
+
+  // Everything below is the owner's: an agent token, or no session at all, gets nothing.
+  app.use('/api', (req, res, next) => {
+    if (signedIn(req)) return next();
+    res.status(401).json({ error: 'Sign in to the Allowance dashboard first.' });
   });
 
   let aiHealth: { at: number; value: { ok: boolean; detail: string } } | null = null;
@@ -275,7 +323,9 @@ export function createApp(deps: AppDeps): express.Express {
   }
 
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    if (error instanceof InvalidRequestError) {
+    if (error instanceof OwnerError) {
+      res.status(error.status).json({ error: error.message });
+    } else if (error instanceof InvalidRequestError) {
       res.status(400).json({ error: error.message, issues: error.issues });
     } else if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Invalid input.', issues: error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`) });
