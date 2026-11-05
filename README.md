@@ -146,15 +146,19 @@ flowchart LR
 - The rules run first and are pure functions, unit-tested in `server/test/policy.test.ts`.
 - The AI review sees your rules in your own words and the request. Text the agent copied from web pages is marked as data,
   never instructions. If the model does not answer, purchases the rules would pay wait for you instead (`AI_ON_FAILURE`).
-- Every PayPal call carries an idempotency key (`PayPal-Request-Id`), so a retry never pays twice.
+- Every PayPal call that creates an order or moves money carries an idempotency key (`PayPal-Request-Id`), so a retry
+  never pays twice.
 
 ## PayPal APIs used
 
 | API | Calls | What for |
 |---|---|---|
 | Vault v3 | `POST /v3/vault/setup-tokens`, `POST /v3/vault/payment-tokens`, `DELETE /v3/vault/payment-tokens/{id}` | Link the owner's PayPal wallet once; unlink it |
-| Orders v2 | `POST /v2/checkout/orders` with `payment_source.paypal.vault_id`, intent `CAPTURE` or `AUTHORIZE`; `GET /v2/checkout/orders/{id}` | Pay at once, or hold the money |
-| Payments v2 | `POST /v2/payments/authorizations/{id}/capture`, `POST /v2/payments/authorizations/{id}/void`, `GET /v2/payments/authorizations/{id}` | Your approve and deny buttons, and the 24-hour auto-void |
+| Orders v2 | `POST /v2/checkout/orders` with `payment_source.paypal.vault_id`, intent `CAPTURE` or `AUTHORIZE` | Pay at once, or hold the money |
+| Payments v2 | `POST /v2/payments/authorizations/{id}/capture`, `POST /v2/payments/authorizations/{id}/void` | Your approve and deny buttons, and the 24-hour auto-void |
+
+Who gets the money: in the sandbox every order is paid to the business account of your PayPal REST app, which stands in
+for the shop. Paying each merchant's own PayPal account is the next step.
 
 ## AI used
 
@@ -228,7 +232,9 @@ npm run eval:ai      # the AI evaluation above, against your configured model
 ## Security notes
 
 - Agents never see PayPal credentials or the vault token. Agent tokens are stored hashed and can be revoked.
-- The dashboard has no login: it is a single-owner app and listens on `127.0.0.1` only. Do not expose it to a network as is.
+- The dashboard has no login yet: it is a single-owner app and listens on `127.0.0.1` only. Do not expose it to a network
+  as is. Any program on the same machine can call its API, so an agent you want to keep on an allowance must not get a
+  shell on that machine; it should only see the MCP endpoint.
 - This is a hackathon project that talks to the PayPal **sandbox**. Real money needs production credentials, real sign-in
   and a security review.
 
