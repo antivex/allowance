@@ -254,20 +254,25 @@ export function evaluate(req: NormalizedRequest, ctx: PolicyContext): PolicyResu
       });
     }
 
-    const autoMaxCents = toCents(rules.autoApproveMax);
+    // A category can have its own limit; with several categories in one purchase, the strictest applies.
+    const goods = effective.filter((category) => category !== 'shipping_tax');
+    const ownLimit = goods.length > 0 && goods.every((category) => rules.categoryLimits[category] !== undefined);
+    const autoMax = goods.length ? Math.min(...goods.map((category) => rules.categoryLimits[category] ?? rules.autoApproveMax)) : rules.autoApproveMax;
+    const autoMaxCents = toCents(autoMax);
+    const limitName = ownLimit ? `${list(goods)} limit` : 'auto-approve limit';
     if (req.amountCents > autoMaxCents) {
       add({
         id: 'auto_limit',
         outcome: 'ask',
         label: 'Auto-approve limit',
-        detail: `${fmt(req.amountCents)} is over your ${fmt(autoMaxCents)} auto-approve limit.`,
+        detail: `${fmt(req.amountCents)} is over your ${fmt(autoMaxCents)} ${limitName}.`,
       });
     } else {
       add({
         id: 'auto_limit',
         outcome: 'approve',
         label: 'Auto-approve limit',
-        detail: `Within your ${fmt(autoMaxCents)} auto-approve limit.`,
+        detail: `Within your ${fmt(autoMaxCents)} ${limitName}.`,
       });
     }
 

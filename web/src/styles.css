@@ -1596,3 +1596,6 @@ code,
     justify-content: center;
   }
 }
+
+.category-limits { display: grid; gap: 6px; }
+.category-limit-name { min-width: 120px; font-size: 13px; }

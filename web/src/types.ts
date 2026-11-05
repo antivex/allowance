@@ -59,6 +59,8 @@ export interface Rules {
   blockedMerchants: string[];
   unknownMerchant: Decision;
   otherwise: 'ask' | 'block';
+  /** Per-purchase limits for single categories, in place of autoApproveMax. */
+  categoryLimits: Partial<Record<Category, number>>;
 }
 
 export interface Check {

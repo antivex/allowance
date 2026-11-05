@@ -68,9 +68,10 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
 
    **Rules that learn, with your say-so.** When you approve something the rules held, Allowance asks whether to change
    the rules so that next time it goes through: "You approved €89.00 at Inkwell Supplies. Next time, pay for household
-   without asking and raise the per-purchase limit from €50.00 to €90.00?" Nothing changes until you press **Add to my
-   rules**, the plain-English text is updated with the limits, and the weekly budget is never raised this way. Holds
-   the AI review asked for teach nothing: its doubts are about that request, not about your limits.
+   without asking, up to €90.00 a purchase?" The change is as narrow as the purchase: household gets a limit of its own,
+   and every other category keeps the €50 limit. Nothing changes until you press **Add to my rules**, the plain-English
+   text is updated with the limits, and the weekly budget is never raised this way. Holds the AI review asked for teach
+   nothing: its doubts are about that request, not about your limits.
 
 5. **A live ledger built on AG Grid**: every request from every agent with the decision, the explanation and the PayPal
    status. Approve and deny inside the row, filters by outcome and agent, search, totals and CSV export.
@@ -301,7 +302,7 @@ The decision layer (rules, AI review that can only tighten, holds, the owner's s
    orders as the payee, or pay at merchants that accept agent-initiated PayPal payments.
 2. **One wallet per owner, hosted.** Owner accounts instead of a single local password, each with its own vaulted
    PayPal wallet, and push notifications for held purchases, so the phone rings when an agent asks.
-3. **Narrower limits and a stronger review.** Budgets per agent and per merchant, so a learned limit can stay narrow;
+3. **Narrower limits and a stronger review.** Budgets per agent and per merchant, next to today's per-category limits;
    a larger model behind the same "can only tighten" contract; the AI evaluation run on every change.
 
 ## License

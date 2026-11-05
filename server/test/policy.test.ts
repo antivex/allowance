@@ -17,6 +17,7 @@ const RULES: Rules = {
   blockedMerchants: [],
   unknownMerchant: 'ask',
   otherwise: 'ask',
+  categoryLimits: {},
 };
 
 const INK: PurchaseRequest = {
@@ -49,6 +50,20 @@ describe('deterministic policy', () => {
     expect(result.decision).toBe('ask');
     expect(outcome(result, 'auto_limit')).toBe('ask');
     expect(result.explanation).toContain('over your $50.00 auto-approve limit');
+  });
+
+  it('uses a category’s own limit, and the strictest one when a purchase mixes categories', () => {
+    const rules: Rules = { ...RULES, allowedCategories: ['office_supplies', 'household'], categoryLimits: { household: 90 } };
+    const chair = { ...INK, items: [{ name: 'Mesh desk chair', quantity: 1, unit_price: 89, category: 'household' as const }], amount: 89 };
+    const approved = run(chair, rules);
+    expect(approved.decision).toBe('approve');
+    expect(approved.checks.find((check) => check.id === 'auto_limit')?.detail).toBe('Within your $90.00 household limit.');
+    // The same amount of office supplies still uses the general $50 limit.
+    const toner = { ...INK, items: [{ name: 'Toner', quantity: 1, unit_price: 89, category: 'office_supplies' as const }], amount: 89 };
+    expect(run(toner, rules).decision).toBe('ask');
+    // A chair with toner in the same order: the strictest limit applies.
+    const both = { ...INK, items: [chair.items[0]!, { name: 'Pens', quantity: 1, unit_price: 6, category: 'office_supplies' as const }], amount: 95 };
+    expect(outcome(run(both, rules), 'auto_limit')).toBe('ask');
   });
 
   it('counts money already spent or held against the weekly budget', () => {

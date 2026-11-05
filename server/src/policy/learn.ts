@@ -44,23 +44,30 @@ export function suggestFromApproval(rules: Rules, text: string, purchase: Approv
   const question: string[] = [];
   const sentences: string[] = [];
 
-  if (asked.has('category')) {
-    const added = [...new Set(purchase.items.map((item) => item.category))].filter(
-      (category) => category !== 'shipping_tax' && !next.allowedCategories.includes(category) && !next.blockedCategories.includes(category),
-    );
-    if (added.length) {
-      next.allowedCategories = [...next.allowedCategories, ...added];
-      const names = added.map((category) => CATEGORY_LABELS[category]).join(' and ');
-      question.push(`pay for ${names} without asking`);
-      sentences.push(`${names.charAt(0).toUpperCase()}${names.slice(1)} is fine without asking too.`);
-    }
-  }
+  // The change stays as narrow as the purchase: its own categories, with a limit of their own. The general
+  // per-purchase limit for everything else does not move.
+  const goods = [...new Set(purchase.items.map((item) => item.category))].filter((category) => category !== 'shipping_tax');
+  const names = goods.map((category) => CATEGORY_LABELS[category]).join(' and ');
+  const capitalized = `${names.charAt(0).toUpperCase()}${names.slice(1)}`;
+  let limit: number | null = null;
   if (asked.has('auto_limit')) {
-    const limit = roundLimit(purchase.amountCents / 100);
+    limit = roundLimit(purchase.amountCents / 100);
     if (rules.hardMax !== null && limit > rules.hardMax) return null;
-    next.autoApproveMax = limit;
-    question.push(`raise the per-purchase limit from ${money(rules.autoApproveMax)} to ${money(limit)}, for every category`);
-    sentences.push(`Up to ${money(limit)} per purchase without asking.`);
+    for (const category of goods) next.categoryLimits[category] = Math.max(next.categoryLimits[category] ?? 0, limit);
+  }
+  const added = asked.has('category')
+    ? goods.filter((category) => !next.allowedCategories.includes(category) && !next.blockedCategories.includes(category))
+    : [];
+  next.allowedCategories = [...next.allowedCategories, ...added];
+  if (added.length && limit !== null) {
+    question.push(`pay for ${names} without asking, up to ${money(limit)} a purchase`);
+    sentences.push(`${capitalized} is fine without asking, up to ${money(limit)} per purchase.`);
+  } else if (added.length) {
+    question.push(`pay for ${names} without asking`);
+    sentences.push(`${capitalized} is fine without asking too.`);
+  } else if (limit !== null) {
+    question.push(`pay for ${names} without asking up to ${money(limit)} a purchase`);
+    sentences.push(`${capitalized}: up to ${money(limit)} per purchase without asking.`);
   }
   if (asked.has('merchant') && !next.allowedMerchants.includes(purchase.merchant)) {
     next.allowedMerchants = [...next.allowedMerchants, purchase.merchant];

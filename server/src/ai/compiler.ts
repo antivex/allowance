@@ -24,6 +24,7 @@ const DraftSchema = z.object({
   blockedMerchants: z.array(z.string()),
   unknownMerchant: DecisionSchema,
   otherwise: z.enum(['ask', 'block']),
+  categoryLimits: z.array(z.object({ category: CategorySchema, limit: z.number() })).optional(),
 });
 export type RulesDraft = z.infer<typeof DraftSchema>;
 
@@ -39,6 +40,7 @@ export function compilerSystemPrompt(currency: string): string {
 - allowedMerchants and blockedMerchants: merchant names or domains the text names, else [].
 - unknownMerchant: what to do with merchants outside allowedMerchants: "approve", "ask" or "block". Default "ask".
 - otherwise: what to do with anything the rules do not cover: "ask" or "block". Default "ask".
+- categoryLimits: only when the text gives one category its own per-purchase limit ("household is fine up to 90"), a list like [{"category": "household", "limit": 90}]; else [].
 Use only these categories: ${CATEGORIES.join(', ')}.
 Map everyday words to them: "office supplies", "printer ink", "paper" -> office_supplies; "food", "groceries" -> groceries; "apps", "subscriptions", "SaaS" -> software; "gift cards", "vouchers" -> gift_cards; "crypto", "bitcoin" -> crypto; "betting" -> gambling.
 Never invent limits, merchants or categories the text does not support. Reply with JSON only.`;
@@ -46,8 +48,13 @@ Never invent limits, merchants or categories the text does not support. Reply wi
 
 const round = (value: number) => Math.round(Math.max(0, value) * 100) / 100;
 
+/** A model draft (category limits as a list) or rules saved from the dashboard (category limits as a map). */
+export type RulesInput = Omit<RulesDraft, 'categoryLimits'> & {
+  categoryLimits?: RulesDraft['categoryLimits'] | Partial<Record<Category, number>>;
+};
+
 /** Makes a model draft safe to show and store: clamps numbers, dedupes lists, resolves contradictions. */
-export function normalizeRules(draft: RulesDraft, defaultCurrency: string): { rules: Rules; warnings: string[] } {
+export function normalizeRules(draft: RulesInput, defaultCurrency: string): { rules: Rules; warnings: string[] } {
   const warnings: string[] = [];
   const currency = /^[A-Z]{3}$/.test(draft.currency.trim().toUpperCase()) ? draft.currency.trim().toUpperCase() : defaultCurrency;
   if (currency !== defaultCurrency) {
@@ -71,7 +78,20 @@ export function normalizeRules(draft: RulesDraft, defaultCurrency: string): { ru
   if (autoApproveMax === 0) warnings.push('No per-purchase limit found: every purchase will wait for you.');
   if (weeklyBudget === null) warnings.push('No weekly budget found.');
 
+  const categoryLimits: Partial<Record<Category, number>> = {};
+  const limits = Array.isArray(draft.categoryLimits)
+    ? draft.categoryLimits
+    : (Object.entries(draft.categoryLimits ?? {}) as Array<[Category, number]>).map(([category, limit]) => ({ category, limit }));
+  for (const { category, limit } of limits) {
+    if (!(limit > 0) || blocked.includes(category)) continue;
+    if (hardMax !== null && limit > hardMax) {
+      warnings.push(`The ${CATEGORY_LABELS[category]} limit was above the hard limit, so it was lowered to match.`);
+    }
+    categoryLimits[category] = hardMax !== null ? Math.min(round(limit), hardMax) : round(limit);
+  }
+
   const rules = RulesSchema.parse({
+    categoryLimits,
     currency,
     autoApproveMax,
     hardMax,
@@ -97,6 +117,9 @@ export function describeRules(rules: Rules): string[] {
   const verb = { approve: 'allow', ask: 'ask me', block: 'refuse' } as const;
   const lines: string[] = [];
   lines.push(rules.autoApproveMax > 0 ? `Pay without asking up to ${money(rules.autoApproveMax)} per purchase.` : 'Ask me before every purchase.');
+  for (const [category, limit] of Object.entries(rules.categoryLimits) as Array<[Category, number]>) {
+    lines.push(`${CATEGORY_LABELS[category].replace(/^./, (first) => first.toUpperCase())}: up to ${money(limit)} per purchase.`);
+  }
   if (rules.hardMax !== null) lines.push(`Never more than ${money(rules.hardMax)} in one purchase.`);
   if (rules.weeklyBudget !== null) {
     lines.push(`Weekly budget ${money(rules.weeklyBudget)}, money on hold included. Over budget: ${verb[rules.overBudget]}.`);
@@ -168,4 +191,5 @@ export const EXAMPLE_RULES: Rules = {
   blockedMerchants: [],
   unknownMerchant: 'ask',
   otherwise: 'ask',
+  categoryLimits: {},
 };

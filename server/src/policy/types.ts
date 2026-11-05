@@ -85,6 +85,11 @@ export const RulesSchema = z.object({
   unknownMerchant: DecisionSchema,
   /** What happens with a category outside allowedCategories. */
   otherwise: z.enum(['ask', 'block']),
+  /**
+   * Per-purchase limits for single categories, in place of autoApproveMax (for example learned from an approval:
+   * household up to 90). With several categories in one purchase, the strictest limit applies.
+   */
+  categoryLimits: z.partialRecord(CategorySchema, money).default({}),
 });
 export type Rules = z.infer<typeof RulesSchema>;
 

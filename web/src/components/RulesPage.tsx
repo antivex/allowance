@@ -11,6 +11,9 @@ export function describeRules(rules: Rules): string[] {
   const names = (list: Category[]) => list.map((c) => CATEGORY_LABELS[c].toLowerCase()).join(', ');
   const lines: string[] = [];
   lines.push(rules.autoApproveMax > 0 ? `Pay without asking up to ${money(rules.autoApproveMax)} per purchase.` : 'Ask me before every purchase.');
+  for (const [category, limit] of Object.entries(rules.categoryLimits ?? {}) as Array<[Category, number]>) {
+    lines.push(`${CATEGORY_LABELS[category]}: up to ${money(limit)} per purchase.`);
+  }
   if (rules.hardMax !== null) lines.push(`Never more than ${money(rules.hardMax)} in one purchase.`);
   if (rules.weeklyBudget !== null) lines.push(`Weekly budget ${money(rules.weeklyBudget)}, money on hold included. Over budget: ${verb[rules.overBudget]}.`);
   lines.push(rules.allowedCategories.length > 0 ? `Without asking, only: ${names(rules.allowedCategories)}.` : 'Without asking: any category not on the never list.');
@@ -333,6 +336,32 @@ export function RulesPage({ state, notify }: Props) {
             </div>
           </div>
         </div>
+        {Object.keys(draft.categoryLimits ?? {}).length > 0 && (
+          <div className="field" style={{ alignItems: 'start' }}>
+            <label>
+              Category limits
+              <small>in place of the limit above; empty = remove</small>
+            </label>
+            <div className="category-limits">
+              {(Object.entries(draft.categoryLimits ?? {}) as Array<[Category, number]>).map(([category, limit]) => (
+                <div className="row" key={category}>
+                  <span className="category-limit-name">{CATEGORY_LABELS[category]}</span>
+                  <MoneyField
+                    value={limit}
+                    nullable
+                    currency={draft.currency}
+                    onChange={(v) => {
+                      const next = { ...draft.categoryLimits };
+                      if (v && v > 0) next[category] = v;
+                      else delete next[category];
+                      update({ categoryLimits: next });
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="field">
           <label>
             Known merchants
