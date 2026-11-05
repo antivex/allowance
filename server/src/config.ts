@@ -21,7 +21,8 @@ export interface Config {
   currency: string;
   /** Minutes the owner has to decide before a hold is voided. */
   holdMinutes: number;
-  paypal: { clientId: string; clientSecret: string; recordDir: string | null } | null;
+  /** payees: merchant name (lowercase) → the merchant's own PayPal account, from PAYPAL_PAYEES. */
+  paypal: { clientId: string; clientSecret: string; recordDir: string | null; payees: Record<string, string> } | null;
   ai: AiConfig;
   /** Port of the demo shop, or 0 to turn it off. */
   shopPort: number;
@@ -52,6 +53,21 @@ function str(env: NodeJS.ProcessEnv, key: string, fallback: string): string {
   return raw === undefined ? fallback : raw.trim();
 }
 
+/** "Inkwell Supplies=shop@example.com; Other Shop=other@example.com" → { "inkwell supplies": "shop@example.com", … } */
+export function parsePayees(text: string): Record<string, string> {
+  const payees: Record<string, string> = {};
+  for (const pair of text.split(';').map((part) => part.trim()).filter(Boolean)) {
+    const at = pair.lastIndexOf('=');
+    const merchant = pair.slice(0, at).trim();
+    const email = pair.slice(at + 1).trim();
+    if (at < 1 || !merchant || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new ConfigError(`PAYPAL_PAYEES: write "Merchant name=paypal-account@example.com", separated by ";". Got "${pair}".`);
+    }
+    payees[merchant.toLowerCase()] = email;
+  }
+  return payees;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env, root: string = process.cwd()): Config {
   const port = int(env, 'PORT', 4000, 1, 65535);
   const host = str(env, 'HOST', '127.0.0.1') || '127.0.0.1';
@@ -68,6 +84,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root: string = 
     throw new ConfigError('Set both PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET, or neither for the offline simulation.');
   }
   const recordDir = str(env, 'PAYPAL_RECORD_DIR', '');
+  const payees = parsePayees(str(env, 'PAYPAL_PAYEES', ''));
 
   const onFailure = str(env, 'AI_ON_FAILURE', 'ask');
   if (onFailure !== 'ask' && onFailure !== 'keep') throw new ConfigError('AI_ON_FAILURE must be "ask" or "keep".');
@@ -79,7 +96,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root: string = 
     dataDir: resolve(root, str(env, 'DATA_DIR', 'data') || 'data'),
     currency,
     holdMinutes: int(env, 'HOLD_TIMEOUT_MINUTES', 1440, 1, 3 * 24 * 60),
-    paypal: clientId ? { clientId, clientSecret, recordDir: recordDir ? resolve(root, recordDir) : null } : null,
+    paypal: clientId ? { clientId, clientSecret, recordDir: recordDir ? resolve(root, recordDir) : null, payees } : null,
     ai: {
       enabled: str(env, 'AI_ENABLED', 'true').toLowerCase() !== 'false',
       baseUrl: (str(env, 'AI_BASE_URL', 'http://localhost:11434/v1') || 'http://localhost:11434/v1').replace(/\/$/, ''),

@@ -89,6 +89,8 @@ export interface CreateOrderBody {
     description: string;
     amount: Money & { breakdown: { item_total: Money } };
     items: OrderItem[];
+    /** Who receives the money. Left out, PayPal pays the REST app's own business account. */
+    payee?: { email_address: string };
   }>;
   payment_source: { paypal: { vault_id: string } };
 }

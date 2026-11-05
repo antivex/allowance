@@ -10,6 +10,8 @@ export interface PayPalOrderView {
   items: string[];
   authorization: { id: string; status: string } | null;
   capture: { id: string; status: string } | null;
+  /** Who receives the money on PayPal's record: an email or a merchant ID. */
+  payee: string | null;
 }
 
 /** One ledger row next to PayPal's own record of it. */
@@ -33,6 +35,7 @@ interface OrderJson {
   purchase_units?: Array<{
     amount?: { value: string; currency_code: string };
     items?: Array<{ name: string; quantity: string }>;
+    payee?: { email_address?: string; merchant_id?: string };
     payments?: { authorizations?: Array<{ id: string; status: string }>; captures?: Array<{ id: string; status: string }> };
   }>;
 }
@@ -74,6 +77,7 @@ export class PayPalRecords {
       items: (unit?.items ?? []).map((item) => `${item.quantity} × ${item.name}`),
       authorization: first(unit?.payments?.authorizations),
       capture: first(unit?.payments?.captures),
+      payee: unit?.payee?.email_address ?? unit?.payee?.merchant_id ?? null,
     };
   }
 
@@ -87,6 +91,7 @@ export class PayPalRecords {
       view.authorization ? `hold ${view.authorization.status}` : null,
       view.capture ? `capture ${view.capture.status}` : null,
       view.amount ? `for ${view.amount}` : null,
+      view.payee ? `to ${view.payee}` : null,
     ].filter(Boolean);
     return {
       purchaseId: purchase.id,

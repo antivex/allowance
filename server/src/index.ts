@@ -52,7 +52,7 @@ if (config.paypal) {
         }
       : undefined,
   });
-  gateway = new SandboxGateway(client);
+  gateway = new SandboxGateway(client, config.paypal.payees);
 } else {
   gateway = new SimulatedGateway();
 }

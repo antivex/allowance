@@ -9,6 +9,7 @@ const view = (over: Partial<PayPalOrderView>): PayPalOrderView => ({
   items: ['1 × Mesh desk chair'],
   authorization: null,
   capture: null,
+  payee: 'shop@business.example.com',
   ...over,
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PayPalClient, PayPalError, type Exchange } from '../src/paypal/client.js';
 import { SandboxGateway, buildOrderBody, type OrderInput } from '../src/paypal/gateway.js';
+import { parsePayees } from '../src/config.js';
 import { fixture, scriptedFetch } from './helpers/fixtures.js';
 
 const VAULT_ID = '8kk8451t';
@@ -167,6 +168,27 @@ describe('order body', () => {
     expect(unit.items[1]!.category).toBeUndefined();
     expect(unit.invoice_id).toBe('req_1');
     expect(body.payment_source).toEqual({ paypal: { vault_id: VAULT_ID } });
+  });
+
+  it("names the merchant's own PayPal account as the payee when the owner configured one", () => {
+    const input: OrderInput = {
+      requestId: 'req_3',
+      intent: 'CAPTURE',
+      vaultId: VAULT_ID,
+      currency: 'EUR',
+      amountCents: 3897,
+      items: [{ name: 'Ink', quantity: 1, unitPriceCents: 3897, category: 'office_supplies' }],
+      merchant: 'Inkwell Supplies',
+    };
+    expect(buildOrderBody(input).purchase_units[0]!.payee).toBeUndefined();
+    expect(buildOrderBody({ ...input, payeeEmail: 'shop@business.example.com' }).purchase_units[0]!.payee).toEqual({
+      email_address: 'shop@business.example.com',
+    });
+    expect(parsePayees(' Inkwell Supplies = shop@business.example.com ; Other=o@x.io ')).toEqual({
+      'inkwell supplies': 'shop@business.example.com',
+      other: 'o@x.io',
+    });
+    expect(() => parsePayees('Inkwell Supplies')).toThrow(/PAYPAL_PAYEES/);
   });
 
   it('keeps PayPal field limits', () => {

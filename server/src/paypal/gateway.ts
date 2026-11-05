@@ -18,6 +18,8 @@ export interface OrderInput {
   amountCents: number;
   items: NormalizedItem[];
   merchant: string;
+  /** The merchant's own PayPal account, when the owner configured one (PAYPAL_PAYEES). */
+  payeeEmail?: string;
 }
 
 export interface OrderOutcome {
@@ -77,6 +79,7 @@ export function buildOrderBody(input: OrderInput): CreateOrderBody {
         description: truncate(`Allowance agent purchase at ${input.merchant}`, 127),
         amount: { ...money(input.amountCents), breakdown: { item_total: money(input.amountCents) } },
         items,
+        ...(input.payeeEmail ? { payee: { email_address: input.payeeEmail } } : {}),
       },
     ],
     payment_source: { paypal: { vault_id: input.vaultId } },
@@ -87,8 +90,10 @@ export function buildOrderBody(input: OrderInput): CreateOrderBody {
 export class SandboxGateway implements PaymentGateway {
   readonly mode = 'sandbox' as const;
 
+  /** @param payees merchant name (lowercase) → that merchant's PayPal account, from PAYPAL_PAYEES. */
   constructor(
     private readonly client: PayPalClient,
+    private readonly payees: Record<string, string> = {},
     private readonly brandName = 'Allowance',
   ) {}
 
@@ -117,7 +122,8 @@ export class SandboxGateway implements PaymentGateway {
   }
 
   async createOrder(input: OrderInput): Promise<OrderOutcome> {
-    const order = await this.client.createOrder(buildOrderBody(input), input.requestId);
+    const payeeEmail = input.payeeEmail ?? this.payees[input.merchant.trim().toLowerCase()];
+    const order = await this.client.createOrder(buildOrderBody({ ...input, payeeEmail }), input.requestId);
     if (order.status === 'PAYER_ACTION_REQUIRED') {
       throw new GatewayError('PAYER_ACTION_REQUIRED', 'PayPal wants the payer to approve again: link PayPal once more in Allowance.');
     }
