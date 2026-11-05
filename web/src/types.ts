@@ -212,3 +212,10 @@ export interface ReconcileResult {
   checks?: PayPalCheck[];
   summary?: { checked: number; matching: number; notMatching: number; withoutOrder: number };
 }
+
+/** After an approval: the change to the rules that would have let the purchase through, offered as a question. */
+export interface RuleSuggestion {
+  summary: string;
+  rules: Rules;
+  text: string;
+}

@@ -8,7 +8,7 @@ import { RulesPage } from './components/RulesPage';
 import { SetupPage } from './components/SetupPage';
 import { Logo, PayPalWord } from './components/ui';
 import { formatMoney } from './format';
-import type { AppState, Purchase } from './types';
+import type { AppState, Purchase, RuleSuggestion } from './types';
 
 // AG Studio is most of the bundle's weight: it loads only when the Insights tab opens.
 const Insights = lazy(() => import('./components/Insights').then((module) => ({ default: module.Insights })));
@@ -37,6 +37,8 @@ export function App() {
   const [live, setLive] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<RuleSuggestion | null>(null);
+  const [learning, setLearning] = useState(false);
   const loaded = useRef(false);
   const toastId = useRef(0);
   // Messages name the simulated gateway as such, so the offline mode never claims that PayPal moved money.
@@ -129,6 +131,13 @@ export function App() {
         const amount = formatMoney(purchase.amountCents, purchase.currency);
         const who = paypalName.current;
         notify(action === 'approve' ? `Approved: ${who} captured ${amount}.` : `Denied: ${who} voided the ${amount} hold. Nothing was charged.`);
+        // An approval can teach the rules something: ask, never change them silently.
+        if (action === 'approve') {
+          api
+            .suggestion(id)
+            .then((result) => result.suggestion && setSuggestion(result.suggestion))
+            .catch(() => undefined);
+        }
       } catch (error) {
         notify(error instanceof ApiError ? error.message : 'PayPal did not answer.', 'bad');
       } finally {
@@ -146,6 +155,20 @@ export function App() {
     () => ({ approve: (id) => void settle(id, 'approve'), deny: (id) => void settle(id, 'deny'), now }),
     [settle, now],
   );
+
+  const learn = async () => {
+    if (!suggestion) return;
+    setLearning(true);
+    try {
+      await api.saveRules(suggestion.text, suggestion.rules, 'learned from your approval');
+      notify('Rules updated. Agents follow them from the next purchase.');
+      setSuggestion(null);
+    } catch (error) {
+      notify(error instanceof ApiError ? error.message : 'The rules were not saved.', 'bad');
+    } finally {
+      setLearning(false);
+    }
+  };
 
   const waiting = rows.filter((row) => row.status === 'on_hold' || row.status === 'settling');
   const weekStart = startOfWeek(new Date(now));
@@ -235,6 +258,20 @@ export function App() {
             </div>
           )}
           <Kpis budget={state.budget} paidCount={paidCount} simulated={state.mode !== 'sandbox'} />
+          {suggestion && (
+            <div className="banner learn" role="status">
+              <span className="learn-mark">✦</span>
+              <span className="grow">
+                <strong>Learn from this approval?</strong> {suggestion.summary}
+              </span>
+              <button type="button" className="btn primary small" disabled={learning} onClick={() => void learn()}>
+                Add to my rules
+              </button>
+              <button type="button" className="btn ghost small" onClick={() => setSuggestion(null)}>
+                Not now
+              </button>
+            </div>
+          )}
           <ApprovalCards
             purchases={waiting}
             busy={busy}

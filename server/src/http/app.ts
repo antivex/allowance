@@ -10,6 +10,7 @@ import type { Config } from '../config.js';
 import type { EventBus } from '../events.js';
 import { createMcpServer, type PurchaseApi } from '../mcp/tools.js';
 import type { PayPalRecords } from '../paypal/records.js';
+import { suggestFromApproval } from '../policy/learn.js';
 import { RulesSchema } from '../policy/types.js';
 import type { Agent, Store } from '../store.js';
 import { VERSION } from '../version.js';
@@ -278,6 +279,14 @@ export function createApp(deps: AppDeps): express.Express {
 
   app.post('/api/purchases/:id/approve', async (req, res) => {
     res.json(await wallet.approve(String(req.params.id)));
+  });
+
+  // After the owner approves a held purchase: the change to the rules that would have let it through, as a question.
+  app.get('/api/purchases/:id/suggestion', (req, res) => {
+    const purchase = wallet.get(String(req.params.id));
+    const record = store.activeRules();
+    const approved = purchase.status === 'paid' && purchase.decision === 'ask' && purchase.settledBy === 'owner';
+    res.json({ suggestion: approved && record ? suggestFromApproval(record.rules, record.sourceText, purchase) : null });
   });
 
   app.post('/api/purchases/:id/deny', async (req, res) => {

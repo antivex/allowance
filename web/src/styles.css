@@ -1548,3 +1548,14 @@ code,
 .insights-wrap .segmented {
   margin-right: 8px;
 }
+
+/* After an approval: a question about changing the rules, never a silent change. */
+.banner.learn {
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--brand) 35%, transparent);
+}
+
+.learn-mark {
+  color: var(--brand);
+  font-size: 18px;
+}

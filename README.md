@@ -48,6 +48,12 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
 
    <img src="docs/screenshots/approval-card.png" alt="An approval card: PayPal holds €89 until the owner approves or denies" width="400">
 
+   **Rules that learn, with your say-so.** When you approve something the rules held, Allowance asks whether to change
+   the rules so that next time it goes through: "You approved €89.00 at Inkwell Supplies. Next time, pay for household
+   without asking and raise the per-purchase limit from €50.00 to €90.00?" Nothing changes until you press **Add to my
+   rules**, the plain-English text is updated with the limits, and the weekly budget is never raised this way. Holds
+   the AI review asked for teach nothing: its doubts are about that request, not about your limits.
+
 5. **A live ledger built on AG Grid**: every request from every agent with the decision, the explanation and the PayPal
    status. Approve and deny inside the row, filters by outcome and agent, search, totals and CSV export.
 6. **Insights, built with AG Studio**: a dashboard over the same requests, themed like the rest of the app.
@@ -259,8 +265,8 @@ npm run eval:ai      # the AI evaluation above, against your configured model
 ## What is next
 
 - Approval requests on the phone (push or email) instead of only in the dashboard.
-- Budgets per agent and per merchant.
-- Rules that learn from your approvals: "you approved this merchant three times, add it to known merchants?"
+- Budgets per agent and per merchant, so a learned limit can stay narrow.
+- Paying each merchant's own PayPal account instead of the app's sandbox business account.
 
 ## License
 
