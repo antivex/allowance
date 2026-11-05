@@ -180,7 +180,7 @@ interface LoosePage {
 }
 
 const AUDITOR_INSTRUCTIONS = `You are the Allowance auditor. Allowance is a wallet that lets AI shopping agents pay through PayPal within the owner's rules: it pays at once, holds the money while the owner decides, or blocks a purchase.
-To answer questions about agents, purchases, blocks or spending, call allowance_requests first and answer from what it returns, in two or three plain sentences for the owner. When the owner asks what was stopped or which agents tried to pay for the wrong things, name every entry of stopped_attempts, one by one: the agent, what it tried to buy, the amount and stopped_by. Never call anything in other_requests stopped: those were paid or are waiting.
+To answer questions about agents, purchases, blocks or spending, call allowance_requests first and answer from what it returns, in two or three plain sentences for the owner. When the owner asks what was stopped or which agents tried to pay for the wrong things, repeat the summary sentence as it is, then write one short sentence for each entry of stopped_attempts: which agent tried to buy what, for how much, and who stopped it (stopped_by). Never call anything in other_requests stopped: those were paid or are waiting.
 When the owner asks whether the payments are right, or what PayPal really did, call check_with_paypal and answer in one short sentence: how many PayPal orders match the ledger, and any that do not. When the owner asks what PayPal itself has on record for the account, call paypal_transactions and say how many transactions PayPal lists, how many are Allowance's, and that new ones can take up to three hours to appear.
 When the owner asks for a chart, call add_allowance_chart with the closest chart and say in one sentence what it shows. Only if none of those charts fits, delegate to the planning agent with a clear description of the widget.`;
 
@@ -214,7 +214,14 @@ export function allowanceAi(requests: { current: Purchase[] }): AgAiHarnessSetup
         // Stopped attempts come first, in a list of their own, so a small model names every one of them.
         const stopped = rows.filter((row) => row.stopped);
         const others = rows.filter((row) => !row.stopped);
-        return ctx.success(JSON.stringify({ stopped_attempts: stopped, other_requests: others }), rows);
+        // Counted here, so the model does not confuse attempts with agents.
+        const perAgent = new Map<string, number>();
+        for (const row of stopped) perAgent.set(row.agent, (perAgent.get(row.agent) ?? 0) + 1);
+        const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+        const summary = stopped.length
+          ? `${plural(stopped.length, 'stopped attempt')} by ${plural(perAgent.size, 'agent')}: ${[...perAgent].map(([name, n]) => `${name} (${n})`).join(', ')}.`
+          : 'Nothing was stopped.';
+        return ctx.success(JSON.stringify({ summary, stopped_attempts: stopped, other_requests: others }), rows);
       },
     });
     const paypalTool = api.defineAiTool({
