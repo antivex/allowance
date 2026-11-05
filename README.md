@@ -55,6 +55,9 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
      and every request.
    - **Agent watchlist**, a custom widget: one card per agent with what it paid and what was blocked; a click
      cross-filters the whole dashboard to that agent.
+   - **Decisions**, a second page with **Decision flow**, another custom widget: the money every agent asked for, from
+     what the fixed rules alone would have done (pay, ask, block) to where it ended up (paid, held, denied, blocked).
+     Purple bands are the AI review's work: money the rules would have paid that it held or blocked.
    - **An AI assistant** inside AG Studio's agent framework, on the same local model: the *Allowance auditor* answers
      questions such as "which agents tried to pay for things they should not have?" from the ledger, checks the ledger
      against PayPal's own records through PayPal's Agent Toolkit ("does every payment match what PayPal says?"), adds

@@ -20,11 +20,18 @@ const STUDIO_MODULES = [AgStudioAiModule];
 /** Every money field is a sum already: legends and labels read "Paid", not "Paid (sum)". */
 const LOCALE = { aggregationSumFieldName: '${name}', aggregationSumBucketName: '${name}' };
 import { AgentWatchlist, watchlistForm, type WatchlistWidget } from './AgentWatchlist';
+import { DecisionFlow, decisionFlowForm, type DecisionFlowWidget } from './DecisionFlow';
 
 /** Studio's widgets plus Allowance's own. */
 interface AllowanceRegistry extends Omit<AgDefaultRegistry, 'widgets'> {
-  widgets: readonly (AgDefaultWidgetDefinition | AgBaseWidgetDefinition<'agent-watchlist', WatchlistWidget>)[];
+  widgets: readonly (
+    | AgDefaultWidgetDefinition
+    | AgBaseWidgetDefinition<'agent-watchlist', WatchlistWidget>
+    | AgBaseWidgetDefinition<'decision-flow', DecisionFlowWidget>
+  )[];
 }
+
+const category = { type: 'field' as const, supportedRoles: ['category' as const], requires: { cardinality: 'many' as const }, required: true };
 
 /** A number per agent: the money paid or the attempts blocked. */
 const measure = (required: boolean) => ({
@@ -53,8 +60,27 @@ const widgets = (config: AgWidgetsConfig) =>
         minSize: { width: 240, height: 160 },
         ai: { description: 'Agents ranked by blocked attempts, with the money each one paid. Clicking an agent filters the dashboard to it.' },
       },
+      {
+        id: 'decision-flow',
+        label: 'Decision flow',
+        icon: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 5h3M4 12h3M4 19h3M17 5h3M17 12h3M17 19h3"/><path d="M7 5c5 0 5 7 10 7M7 12c5 0 5 7 10 7M7 19c5 0 5-14 10-14"/></svg>',
+        comp: DecisionFlow,
+        dataMapping: {
+          rules: category,
+          outcome: category,
+          decider: category,
+          amount: { type: 'field', supportedRoles: ['numeric'], requires: { per: 'dataMapping.rules', cardinality: 'one' }, required: true },
+        },
+        form: decisionFlowForm,
+        defaultSize: { width: 720, height: 360 },
+        minSize: { width: 420, height: 220 },
+        ai: {
+          description:
+            'Money each agent asked for, from what the fixed rules alone would have done to where it ended up (paid, held, denied, blocked). Purple bands show what the AI review made stricter.',
+        },
+      },
     ],
-    menu: [{ label: 'Allowance', widgetIds: ['agent-watchlist'] }, ...config.menu],
+    menu: [{ label: 'Allowance', widgetIds: ['agent-watchlist', 'decision-flow'] }, ...config.menu],
   });
 
 const OUTCOME: Record<PurchaseStatus, string> = {
@@ -69,6 +95,7 @@ const OUTCOME: Record<PurchaseStatus, string> = {
 };
 
 const DECIDED_BY = { rules: 'Rules', ai: 'AI review', ai_unavailable: 'Rules (AI down)' } as const;
+const RULES_SAID = { approve: 'Pay at once', ask: 'Ask the owner', block: 'Block' } as const;
 
 /** One flat row per purchase request: the shape AG Studio works with. */
 function toRow(purchase: Purchase) {
@@ -89,6 +116,11 @@ function toRow(purchase: Purchase) {
     declined: purchase.status === 'denied' || purchase.status === 'expired' ? amount : 0,
     blocked: blocked ? 1 : 0,
     aiBlocked: blocked && purchase.decisionSource === 'ai' ? 1 : 0,
+    rulesSaid: RULES_SAID[purchase.policyDecision],
+    // Money that never left: what the AI review held or blocked and was not paid, and what the rules blocked.
+    stoppedByAi: purchase.decisionSource === 'ai' && purchase.status !== 'paid' ? amount : 0,
+    stoppedByRules: purchase.decisionSource !== 'ai' && blocked ? amount : 0,
+    asked: amount,
     why: purchase.explanation,
   };
 }
@@ -125,6 +157,25 @@ const theme = studioTheme.withParams({
 /** A widget's reference to a field of the requests table: Studio names fields `table.field`. */
 const field = (id: string, aggregation?: 'sum' | 'count') => ({ id: `requests.${id}`, ...(aggregation ? { aggregation } : {}) });
 
+const PAGE_LAYOUT = {
+  columns: 12,
+  rowHeight: 52,
+  backgroundColor: '#0c0f15',
+  widgetBackgroundColor: '#141922',
+  widgetBorderEnabled: true,
+  widgetBorderColor: '#262e3b',
+  widgetBorderWidth: 1,
+  widgetBorderRadius: 12,
+  widgetPadding: 14,
+};
+
+/** Studio keeps several pages in one report; Allowance shows a switch for them above the canvas. */
+const PAGES = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'decisions', label: 'Decisions' },
+] as const;
+type PageId = (typeof PAGES)[number]['id'];
+
 /** The dashboard every owner starts from; in Customize mode it can be changed freely. */
 const INITIAL_STATE = {
   selectedPageId: 'overview',
@@ -132,17 +183,7 @@ const INITIAL_STATE = {
   pages: [
     {
       id: 'overview',
-      layout: {
-        columns: 12,
-        rowHeight: 52,
-        backgroundColor: '#0c0f15',
-        widgetBackgroundColor: '#141922',
-        widgetBorderEnabled: true,
-        widgetBorderColor: '#262e3b',
-        widgetBorderWidth: 1,
-        widgetBorderRadius: 12,
-        widgetPadding: 14,
-      },
+      layout: PAGE_LAYOUT,
       widgets: {
         kpis: {
           type: 'multi-kpi',
@@ -195,6 +236,42 @@ const INITIAL_STATE = {
         requests: { xTrack: 0, yTrack: 8, xSpan: 12, ySpan: 6 },
       },
     },
+    {
+      // Who decided what: the fixed rules first, then the AI review, then the owner.
+      id: 'decisions',
+      layout: PAGE_LAYOUT,
+      widgets: {
+        decisionKpis: {
+          type: 'multi-kpi',
+          format: {
+            title: { text: 'Who kept the money from leaving', enabled: true },
+            style: {
+              columns: 4,
+              verticalAlign: 'center',
+              typography: { fontSize: 28, fontWeight: 'bold' },
+              columnSeparator: { enabled: true, width: 1, color: '#262e3b' },
+            },
+          },
+          dataMapping: { values: [field('asked', 'sum'), field('paid', 'sum'), field('stoppedByRules', 'sum'), field('stoppedByAi', 'sum')] },
+        },
+        flow: {
+          type: 'decision-flow',
+          format: { title: { text: 'From the rules to the money', enabled: true } },
+          dataMapping: { rules: [field('rulesSaid')], outcome: [field('outcome')], decider: [field('decidedBy')], amount: [field('amount', 'sum')] },
+        },
+        decisions: {
+          type: 'grid',
+          format: { title: { text: 'Every decision, largest first', enabled: true } },
+          dataMapping: { cols: ['agent', 'merchant', 'amount', 'rulesSaid', 'decidedBy', 'outcome', 'why'].map((id) => field(id)) },
+          sort: [{ field: field('amount'), direction: 'desc' }],
+        },
+      },
+      widgetLayout: {
+        decisionKpis: { xTrack: 0, yTrack: 0, xSpan: 12, ySpan: 3 },
+        flow: { xTrack: 0, yTrack: 3, xSpan: 12, ySpan: 7 },
+        decisions: { xTrack: 0, yTrack: 10, xSpan: 12, ySpan: 6 },
+      },
+    },
   ],
 } as unknown as AgReportState;
 
@@ -202,6 +279,7 @@ export function Insights({ rows, currency }: { rows: Purchase[]; currency: strin
   // The license key comes from the local server at runtime, so it is never part of the built bundle.
   const [licenseKey, setLicenseKey] = useState<string | null | undefined>(undefined);
   const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [page, setPage] = useState<PageId>('overview');
   // Studio reads its AI setup once; the auditor's tool reads the live rows through this ref.
   const requests = useRef(rows);
   requests.current = rows;
@@ -245,6 +323,10 @@ export function Insights({ rows, currency }: { rows: Purchase[]; currency: strin
       { id: 'declined', name: 'Denied or expired', ...money },
       { id: 'blocked', name: 'Blocked attempts', ...count },
       { id: 'aiBlocked', name: 'Stopped by the AI review', ...count },
+      { id: 'rulesSaid', name: 'Rules said', ...text },
+      { id: 'asked', name: 'Asked for', ...money },
+      { id: 'stoppedByRules', name: 'Blocked by the rules', ...money },
+      { id: 'stoppedByAi', name: 'Held back by the AI review', ...money },
       { id: 'why', name: 'Why', ...text },
     ] as unknown as AgFieldDefinition[];
     const ordered = [...rows].sort((a, b) => OUTCOME_ORDER.indexOf(a.status) - OUTCOME_ORDER.indexOf(b.status));
@@ -258,6 +340,25 @@ export function Insights({ rows, currency }: { rows: Purchase[]; currency: strin
         <h2>Insights</h2>
         <span>Built with AG Studio on the same requests as the ledger.</span>
         <span className="spacer" />
+        <div className="segmented" role="tablist" aria-label="Insights pages">
+          {PAGES.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              role="tab"
+              aria-selected={page === entry.id}
+              className={page === entry.id ? 'active' : ''}
+              onClick={() => {
+                const api = studio.current;
+                if (!api) return;
+                api.setState({ ...api.getState(), selectedPageId: entry.id });
+                setPage(entry.id);
+              }}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
         <button type="button" className="btn small" onClick={() => setMode(mode === 'view' ? 'edit' : 'view')}>
           {mode === 'view' ? 'Customize' : 'Done'}
         </button>

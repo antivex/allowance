@@ -1473,3 +1473,78 @@ code,
   color: var(--muted);
   font-size: 12px;
 }
+
+/* Decision flow: a custom AG Studio widget, from what the rules said to where the money went. */
+.flow {
+  width: 100%;
+  height: 100%;
+}
+
+.flow svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.flow text {
+  fill: var(--text);
+  font-size: 15px;
+}
+
+.flow .flow-head {
+  fill: var(--muted);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.flow .flow-money {
+  fill: var(--muted);
+}
+
+.flow-band {
+  fill: none;
+  stroke: #7b93ff;
+  stroke-opacity: 0.32;
+  transition: stroke-opacity 0.15s;
+}
+
+.flow-band.ai {
+  stroke: #b48cff;
+  stroke-opacity: 0.72;
+}
+
+.flow-band:hover {
+  stroke-opacity: 0.85;
+}
+
+.flow-rules {
+  fill: #7b93ff;
+}
+
+.flow-node {
+  cursor: pointer;
+}
+
+.flow-node.on text .flow-name {
+  font-weight: 700;
+}
+
+.flow-legend text {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.flow-key {
+  fill: #7b93ff;
+  opacity: 0.6;
+}
+
+.flow-key.ai {
+  fill: #b48cff;
+  opacity: 0.9;
+}
+
+.insights-wrap .segmented {
+  margin-right: 8px;
+}
