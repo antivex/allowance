@@ -23,7 +23,8 @@
     "proof:sandbox": "tsx scripts/sandbox-proof.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.web.json",
-    "eval:ai": "tsx scripts/eval-ai.ts"
+    "eval:ai": "tsx scripts/eval-ai.ts",
+    "eval:attacks": "tsx scripts/eval-attacks.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

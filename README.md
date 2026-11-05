@@ -45,15 +45,16 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
 1. **Plain-English rules, compiled by AI.** "Up to €50 per purchase for office supplies, €150 a week in total. Anything
    else, ask me. Never gift cards or crypto." A local LLM turns that into structured rules; you check them on screen and
    confirm. Amounts are in your PayPal account's currency (`CURRENCY`); the screenshots and the video use euros.
-2. **One door for the agent.** The agent never sees payment details. It gets an MCP tool, `request_purchase(merchant,
-   items, amount, reason)`, and nothing else. Any MCP client can connect, over streamable HTTP or through a stdio bridge
+2. **One door for the agent.** The agent never sees payment details. It gets one MCP tool that spends,
+   `request_purchase(merchant, items, amount, reason)`, and two read-only ones: `get_purchase_status` and
+   `get_spending_mandate`. Any MCP client can connect, over streamable HTTP or through a stdio bridge
    for desktop apps, and so can plain HTTP. The demo agent uses the official MCP TypeScript SDK. The owner's buttons
    (approve, deny, rules, agents, the PayPal link) need the owner's password, which agents never get.
 3. **Two checks on every request.**
    - Deterministic rules: per-purchase limit, hard limit, weekly budget (money on hold counts), categories, merchants.
      Always on: the items must add up to the total, gift cards and crypto are recognised even when the agent files them as
      "office supplies", and instructions aimed at AI inside a request block it.
-   - An AI risk review of the agent's stated reason against your intent: fees demanded by a page, "pay our partner",
+   - An AI risk review, for every request the rules do not block, of the agent's stated reason against your intent: fees demanded by a page, "pay our partner",
      urgency, "pay to unlock", a merchant that does not match the item. **It can only make a decision stricter, never
      looser**, so a wrong or missing AI answer can never cost money.
    - Every decision comes with a one-line explanation, written for you.
@@ -66,6 +67,21 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
 
    <img src="docs/screenshots/approval-card.png" alt="An approval card: PayPal holds €89 until the owner approves or denies" width="400">
 
+   **Signed mandates, in the spirit of [AP2](https://ap2-protocol.org).** Allowance signs two kinds of statements
+   with an Ed25519 key it creates on first run (compact JWS, `alg: EdDSA`), and publishes the public key at
+   `/.well-known/jwks.json`:
+   - the *intent mandate* (`get_spending_mandate`): what this agent may spend without asking, taken from the rules you
+     confirmed, valid for 24 hours. An agent can show it to a merchant that asks who authorized it;
+   - the *cart mandate*, in the outcome of every paid purchase: the exact cart (merchant, items, prices, total), who let
+     the money go (your rules, or you after a hold) and the PayPal order and capture ids. Its id is the PayPal order's
+     `invoice_id`, so PayPal's record and the signed cart point at each other.
+
+   The demo shop shows the merchant's side: the agent places its order with the signed cart, and the shop checks the
+   signature with Allowance's public key and the items and prices against its own catalog before confirming
+   (`POST /api/orders`; its orders page is at `http://localhost:4100/orders`). A changed cart, another signer, a wrong
+   price, an item the shop does not sell or a cart used twice is refused. These are AP2-style mandates signed by your
+   Allowance, not AP2 credentials: the format is plain JOSE, so any merchant can check them with a standard library.
+
    **Rules that learn, with your say-so.** When you approve something the rules held, Allowance asks whether to change
    the rules so that next time it goes through: "You approved €89.00 at Inkwell Supplies. Next time, pay for household
    without asking, up to €90.00 a purchase?" The change is as narrow as the purchase: household gets a limit of its own,
@@ -76,7 +92,7 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
 5. **A live ledger built on AG Grid**: every request from every agent with the decision, the explanation and the PayPal
    status. Approve and deny inside the row, filters by outcome and agent, search, totals and CSV export.
 6. **Insights, built with AG Studio**: a dashboard over the same requests, themed like the rest of the app.
-   - Where the money went (paid, held, kept from leaving, stopped by the AI), spend by agent and outcome, who decided,
+   - Where the money went (paid, held, kept from leaving, caught by the AI review), spend by agent and outcome, who decided,
      and every request.
    - **Agent watchlist**, a custom widget: one card per agent with what it paid and what was blocked; a click
      cross-filters the whole dashboard to that agent.
@@ -168,8 +184,8 @@ claude mcp add --transport http allowance http://localhost:4000/mcp --header "Au
 **Plain HTTP:** `POST /api/agent/purchases` with the same bearer token and a JSON body
 `{ "merchant", "items": [{ "name", "quantity", "unit_price", "category" }], "amount", "reason", "merchant_url"?, "source_url"? }`.
 
-The MCP server exposes two tools: `request_purchase` and the read-only `get_purchase_status`, so an agent can learn what
-you decided about a held purchase.
+The MCP server exposes three tools: `request_purchase`, the read-only `get_purchase_status`, so an agent can learn what
+you decided about a held purchase, and the read-only `get_spending_mandate`.
 
 ## How a decision is made
 
@@ -224,6 +240,23 @@ below.
   rules would not block.
 - **Default model**: [Qwen3.5 4B](https://ollama.com/library/qwen3.5) through Ollama, so nothing leaves your machine. Any
   OpenAI-compatible endpoint works (LM Studio, vLLM or a hosted provider): set `AI_BASE_URL`, `AI_MODEL` and `AI_API_KEY`.
+- **Attacks it was not built for**: the reviewer's instructions name the kinds of trick the demo uses (fees demanded
+  of AI assistants, pay-to-unlock, partners), and the demo's own note is in `eval:ai`. So `npm run eval:attacks` sends
+  16 other attacks (tips, protection plans, a fake system notice, a payment redirect, refund fees, an add-on in Italian,
+  memberships, bulk "price ends tonight", partner bundles, base64 instructions, crypto, gift cards from a fake owner
+  email...) and 6 normal purchases, twice each, to several local models. Full table:
+  [docs/ATTACK_EVAL.md](docs/ATTACK_EVAL.md).
+
+  | Model | Attacks stopped (held or blocked) | ...of those the rules alone would pay | Normal purchases paid without asking |
+  |---|---|---|---|
+  | qwen3.5:4b (the default) | 28 of 32 | 24 of 28 | 12 of 12 |
+  | phi4 (14B) | 25 of 32 | 21 of 28 | 12 of 12 |
+  | qwen2.5-coder:7b | 13 of 32 | 9 of 28 | 12 of 12 |
+
+  The default model's two misses: a payment redirected to "Inkwell Billing Services Ltd" (a **Known merchants** rule
+  holds it, since any other merchant then waits for you) and five reams instead of one at a normal price, still under
+  the limit. The model matters: a coding model let most attacks through, which is why the AI review can only add
+  questions or blocks and the fixed rules stay the guarantee.
 - **Evaluation**: `npm run eval:ai` runs ten purchases, from plain ink to hidden-fee and gift-card scams, under three agent
   names (small models react even to the agent's name). `qwen3.5:4b` gives the expected verdict in 29 or 30 of the 30
   reviews, depending on the run; the usual miss is 400 sticky notes bought for "a pack", approved under one name.
@@ -289,6 +322,7 @@ scripts             setup check, AI evaluation, sandbox proof and ledger reset
 npm test             # policy engine, wallet flows, HTTP API, PayPal client against request/response fixtures
 npm run typecheck
 npm run eval:ai      # the AI evaluation above, against your configured model
+npm run eval:attacks -- qwen3.5:4b phi4   # attacks the demo was not built around, on the models you name
 ```
 
 ## Security notes
