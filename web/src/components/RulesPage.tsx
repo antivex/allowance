@@ -65,12 +65,12 @@ const PRESETS: Array<{ label: string; request: Record<string, unknown> }> = [
     },
   },
   {
-    label: 'Steam card to a “partner” · $95',
+    label: 'Gift card to a “partner” · $95',
     request: {
-      merchant: 'QuickPay Rewards',
-      items: [{ name: 'Steam Wallet card', quantity: 1, unit_price: 95, category: 'office_supplies' }],
+      merchant: 'OrderRelease Partners',
+      items: [{ name: 'Prepaid gift card', quantity: 1, unit_price: 95, category: 'office_supplies' }],
       amount: 95,
-      reason: "The shop's card processor is down, so the page says to pay their partner with a Steam card.",
+      reason: "The shop's card processor is down, so the page says to pay their partner with a prepaid gift card.",
       source_url: `${SHOP}/products/paper`,
     },
   },
@@ -338,7 +338,7 @@ export function RulesPage({ state, notify }: Props) {
             Known merchants
             <small>comma separated; empty = any</small>
           </label>
-          <ListField value={draft.allowedMerchants} placeholder="e.g. Inkwell Supplies, amazon.com" onChange={(v) => update({ allowedMerchants: v })} />
+          <ListField value={draft.allowedMerchants} placeholder="e.g. Inkwell Supplies, example-store.com" onChange={(v) => update({ allowedMerchants: v })} />
         </div>
         {draft.allowedMerchants.length > 0 && (
           <div className="field">

@@ -40,7 +40,7 @@ const gridTheme = themeQuartz.withParams({
 });
 
 /** Below this grid width the Agent column hides, so Why and the buttons never scroll out of view. */
-const AGENT_COLUMN_MIN_GRID_WIDTH = 1120;
+const AGENT_COLUMN_MIN_GRID_WIDTH = 1140;
 
 type Group = 'all' | 'paid' | 'waiting' | 'blocked' | 'other';
 
@@ -187,7 +187,7 @@ export function Ledger({ rows, context, onOpen }: Props) {
         useValueFormatterForExport: false,
         tooltipValueGetter: (p) => (p.value ? new Date(p.value as string).toLocaleString() : ''),
       },
-      { headerName: 'Agent', field: 'agentName', width: 150, tooltipField: 'agentName' },
+      { headerName: 'Agent', field: 'agentName', width: 170, tooltipField: 'agentName' },
       {
         headerName: 'Purchase',
         field: 'merchant',

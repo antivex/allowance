@@ -1,8 +1,9 @@
 import { formatMoney } from '../format';
 import type { Budget } from '../types';
 
-export function Kpis({ budget, paidCount }: { budget: Budget; paidCount: number }) {
+export function Kpis({ budget, paidCount, simulated }: { budget: Budget; paidCount: number; simulated: boolean }) {
   const money = (cents: number) => formatMoney(cents, budget.currency);
+  const paypal = simulated ? 'simulated PayPal' : 'PayPal';
   const total = budget.weeklyBudgetCents;
   const paidPct = total ? Math.min(100, (budget.paidCents / total) * 100) : 0;
   const heldPct = total ? Math.min(100 - paidPct, (budget.heldCents / total) * 100) : 0;
@@ -51,13 +52,13 @@ export function Kpis({ budget, paidCount }: { budget: Budget; paidCount: number 
         <div className="label">Paid this week</div>
         <div className="value">{money(budget.paidCents)}</div>
         <div className="hint">
-          {paidCount} purchase{paidCount === 1 ? '' : 's'} captured by PayPal
+          {paidCount} purchase{paidCount === 1 ? '' : 's'} captured by {paypal}
         </div>
       </div>
       <div className={`card kpi ${budget.waitingCount ? 'warn' : ''}`}>
         <div className="label">Waiting for you</div>
         <div className="value">{budget.waitingCount}</div>
-        <div className="hint">{money(budget.heldCents)} held by PayPal, not charged</div>
+        <div className="hint">{money(budget.heldCents)} held by {paypal}, not charged</div>
       </div>
       <div className={`card kpi ${budget.blockedThisWeek ? 'bad' : ''}`}>
         <div className="label">Blocked this week</div>

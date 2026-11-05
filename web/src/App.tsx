@@ -36,6 +36,9 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const loaded = useRef(false);
   const toastId = useRef(0);
+  // Messages name the simulated gateway as such, so the offline mode never claims that PayPal moved money.
+  const paypalName = useRef('simulated PayPal');
+  paypalName.current = state?.mode === 'sandbox' ? 'PayPal' : 'simulated PayPal';
 
   const notify = useCallback((message: string, tone?: 'bad') => {
     const id = ++toastId.current;
@@ -121,7 +124,8 @@ export function App() {
       try {
         const purchase = action === 'approve' ? await api.approve(id) : await api.deny(id);
         const amount = formatMoney(purchase.amountCents, purchase.currency);
-        notify(action === 'approve' ? `Approved: PayPal captured ${amount}.` : `Denied: PayPal voided the ${amount} hold. Nothing was charged.`);
+        const who = paypalName.current;
+        notify(action === 'approve' ? `Approved: ${who} captured ${amount}.` : `Denied: ${who} voided the ${amount} hold. Nothing was charged.`);
       } catch (error) {
         notify(error instanceof ApiError ? error.message : 'PayPal did not answer.', 'bad');
       } finally {
@@ -216,11 +220,12 @@ export function App() {
               </button>
             </div>
           )}
-          <Kpis budget={state.budget} paidCount={paidCount} />
+          <Kpis budget={state.budget} paidCount={paidCount} simulated={state.mode !== 'sandbox'} />
           <ApprovalCards
             purchases={waiting}
             busy={busy}
             now={now}
+            simulated={state.mode !== 'sandbox'}
             onApprove={(id) => void settle(id, 'approve')}
             onDeny={(id) => void settle(id, 'deny')}
             onOpen={setOpenId}

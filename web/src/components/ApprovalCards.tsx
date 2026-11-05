@@ -6,18 +6,19 @@ interface Props {
   purchases: Purchase[];
   busy: Set<string>;
   now: number;
+  simulated: boolean;
   onApprove: (id: string) => void;
   onDeny: (id: string) => void;
   onOpen: (id: string) => void;
 }
 
-export function ApprovalCards({ purchases, busy, now, onApprove, onDeny, onOpen }: Props) {
+export function ApprovalCards({ purchases, busy, now, simulated, onApprove, onDeny, onOpen }: Props) {
   if (purchases.length === 0) return null;
   return (
     <>
       <div className="section-title">
         <h2>Waiting for you</h2>
-        <span>PayPal is holding the money. Approve to capture it, deny to void the hold.</span>
+        <span>{simulated ? 'The simulated PayPal hold' : 'PayPal'} is holding the money. Approve to capture it, deny to void the hold.</span>
       </div>
       <div className="approvals">
         {purchases.map((purchase) => {
