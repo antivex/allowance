@@ -83,7 +83,8 @@ export function normalizeRules(draft: RulesInput, defaultCurrency: string): { ru
     ? draft.categoryLimits
     : (Object.entries(draft.categoryLimits ?? {}) as Array<[Category, number]>).map(([category, limit]) => ({ category, limit }));
   for (const { category, limit } of limits) {
-    if (!(limit > 0) || blocked.includes(category)) continue;
+    // A category limit equal to the general one says nothing new ("up to 50 for office supplies" is the general limit).
+    if (!(limit > 0) || blocked.includes(category) || round(limit) === autoApproveMax) continue;
     if (hardMax !== null && limit > hardMax) {
       warnings.push(`The ${CATEGORY_LABELS[category]} limit was above the hard limit, so it was lowered to match.`);
     }

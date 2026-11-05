@@ -55,6 +55,8 @@ describe('rules that learn from the owner’s approvals', () => {
     expect(fromModel.rules.categoryLimits).toEqual({ household: 90, electronics: 120 });
     expect(fromModel.warnings).toContain('The electronics limit was above the hard limit, so it was lowered to match.');
     expect(normalizeRules({ ...RULES, categoryLimits: { household: 90 } }, 'EUR').rules.categoryLimits).toEqual({ household: 90 });
+    // "Up to 50 for office supplies" with a general limit of 50 is no special limit.
+    expect(normalizeRules({ ...RULES, categoryLimits: [{ category: 'office_supplies', limit: RULES.autoApproveMax }] }, 'EUR').rules.categoryLimits).toEqual({});
     expect(describeRules({ ...RULES, categoryLimits: { household: 90 } })).toContain('Household: up to €90.00 per purchase.');
   });
 
