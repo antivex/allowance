@@ -228,8 +228,9 @@ below.
   reviews, depending on the run; the usual miss is 400 sticky notes bought for "a pack", approved under one name.
 - **Insights assistant**: AG Studio's agent framework, driven through a small adapter for OpenAI-compatible chat
   completions (`web/src/components/insightsAi.ts`). The browser calls Allowance's server, which adds the model and the key,
-  so neither reaches the page. The auditor has three tools of its own (the ledger's requests, `check_with_paypal`, which
-  reads every order back from PayPal through PayPal's Agent Toolkit, and ready-made charts) and delegates other widget
+  so neither reaches the page. The auditor has four tools of its own (the ledger's requests, `check_with_paypal`, which
+  reads every order back from PayPal through PayPal's Agent Toolkit, `paypal_transactions`, PayPal's own transaction
+  list through the same toolkit, and ready-made charts) and delegates other widget
   requests to Studio's planning, data, page and widget agents. A small model handles its own tools reliably; building
   arbitrary widgets through Studio's agents needs a stronger one.
 - **AG Studio license**: AG Studio is commercial software. Put a trial or license key in `AG_STUDIO_LICENSE_KEY`; the
