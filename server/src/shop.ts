@@ -132,7 +132,7 @@ export function createShopApp(shopDir: string, currency: string, options: ShopOp
 <link rel="stylesheet" href="/shop.css"><style>
 main{max-width:1100px;margin:32px auto;padding:0 24px}table{width:100%;border-collapse:collapse;background:#fff}
 th,td{padding:12px 14px;border-bottom:1px solid #e6e1d6;text-align:left;vertical-align:top}th{font-size:13px;color:#6b6457}
-.num{text-align:right;white-space:nowrap}.ok{color:#1e7d4a;font-weight:600}small{color:#6b6457}h1{margin:0 0 6px}
+.num,td:first-child,td:nth-child(2){white-space:nowrap}.num{text-align:right}.ok{color:#1e7d4a;font-weight:600}small{color:#6b6457}h1{margin:0 0 6px}
 </style></head><body><main><h1>Orders from AI agents</h1>
 <p>Each order came with the cart Allowance signed after paying. ${shopName} checked the signature with Allowance's public key, and the items and prices against its catalog, before confirming.</p>
 <table><thead><tr><th>Order</th><th>Received</th><th>Agent</th><th>Items</th><th class="num">Paid</th><th>Check</th></tr></thead>
