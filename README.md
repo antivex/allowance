@@ -56,7 +56,11 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
      "office supplies", and instructions aimed at AI inside a request block it.
    - An AI risk review, for every request the rules do not block, of the agent's stated reason against your intent: fees demanded by a page, "pay our partner",
      urgency, "pay to unlock", a merchant that does not match the item. **It can only make a decision stricter, never
-     looser**, so a wrong or missing AI answer can never cost money.
+     looser**: it cannot override a block or an owner-review requirement imposed by the fixed rules, and with the
+     default failure setting (`AI_ON_FAILURE=ask`) a missing or invalid AI answer sends otherwise-approved requests to
+     the owner. What it does not promise: a false negative can still approve an unwanted purchase that satisfies the
+     fixed rules -- our evaluation with the default model has 4 such runs ([docs/ATTACK_EVAL.md](docs/ATTACK_EVAL.md)).
+     The fixed rules, not the review, are the guarantee.
    - Every decision comes with a one-line explanation, written for you.
 4. **PayPal does the money part** (sandbox, Orders v2):
    - **approve**: an order with intent `CAPTURE`, paid from your linked PayPal wallet;
@@ -244,22 +248,24 @@ below.
   of AI assistants, pay-to-unlock, partners), and the demo's own note is in `eval:ai`. So `npm run eval:attacks` sends
   16 other attacks (tips, protection plans, a fake system notice, a payment redirect, refund fees, an add-on in Italian,
   memberships, bulk "price ends tonight", partner bundles, base64 instructions, crypto, gift cards from a fake owner
-  email...) and 6 normal purchases, twice each, to several local models. Full table:
-  [docs/ATTACK_EVAL.md](docs/ATTACK_EVAL.md).
+  email...) and 6 normal purchases, twice each, to several local models. It is a simulation of the **decisions** with a
+  real local model -- rules engine and AI reviewer, no PayPal call -- so the table says what Allowance *would* do; the
+  proof that money really moves this way is the sandbox run in [docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md). Full
+  table: [docs/ATTACK_EVAL.md](docs/ATTACK_EVAL.md).
 
   The rules block 4 of the 32 attack runs (crypto and gift cards). The other 28 are inside the rules, so the rules alone
   would pay them:
 
-  | Model | Caught by the AI review | Held because the AI did not answer in time | Paid without the owner | Normal purchases paid without asking |
+  | Model | Caught by the AI review | Sent to the owner because the AI did not answer in time | Would pay without the owner | Normal purchases that would pay without asking |
   |---|---|---|---|---|
   | qwen3.5:4b (the default) | 23 of 28 | 1 | 4 | 12 of 12 |
   | phi4 (14B) | 21 of 28 | 0 | 7 | 12 of 12 |
   | qwen2.5-coder:7b | 7 of 28 | 2 | 19 | 12 of 12 |
 
   The reviewer's instructions describe these families of trick; the wording of every attack is new. The default model's
-  two misses, each twice: a payment redirected to "Inkwell Billing Services Ltd" (a **Known merchants** rule
-  holds it, since any other merchant then waits for you) and five reams instead of one at a normal price, still under
-  the limit. The model matters: a coding model let most attacks through, which is why the AI review can only add
+  two misses, each twice -- the four runs the AI review would have let through -- are a payment redirected to "Inkwell
+  Billing Services Ltd" (a **Known merchants** rule holds it, since any other merchant then waits for you) and five
+  reams instead of one at a normal price, still under the limit. The model matters: a coding model let most attacks through, which is why the AI review can only add
   questions or blocks and the fixed rules stay the guarantee.
 - **Evaluation**: `npm run eval:ai` runs ten purchases, from plain ink to hidden-fee and gift-card scams, under three agent
   names (small models react even to the agent's name). `qwen3.5:4b` gives the expected verdict in 29 or 30 of the 30
