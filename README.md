@@ -258,9 +258,9 @@ below.
 
   | Model | Caught by the AI review | Sent to the owner because the AI did not answer in time | Would pay without the owner | Normal purchases that would pay without asking |
   |---|---|---|---|---|
-  | qwen3.5:4b (the default) | 23 of 28 | 1 | 4 | 12 of 12 |
-  | phi4 (14B) | 21 of 28 | 0 | 7 | 12 of 12 |
-  | qwen2.5-coder:7b | 7 of 28 | 2 | 19 | 12 of 12 |
+  | qwen3.5:4b (the default) | 24 of 28 | 0 | 4 | 12 of 12 |
+  | phi4 (14B) | 20 of 28 | 0 | 8 | 12 of 12 |
+  | qwen2.5-coder:7b | 7 of 28 | 0 | 21 | 12 of 12 |
 
   The reviewer's instructions describe these families of trick; the wording of every attack is new. The default model's
   two misses, each twice -- the four runs the AI review would have let through -- are a payment redirected to "Inkwell
