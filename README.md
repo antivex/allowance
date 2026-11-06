@@ -42,7 +42,7 @@ People need what parents give teenagers: an allowance with rules, and a phone ca
 
 ## What it does
 
-1. **Plain-English rules, compiled by AI.** "Up to €50 per purchase for office supplies, €150 a week in total. Anything
+1. **Plain-English rules, compiled by AI.** "Up to €50 per purchase for office supplies, €200 a week in total. Anything
    else, ask me. Never gift cards or crypto." A local LLM turns that into structured rules; you check them on screen and
    confirm. Amounts are in your PayPal account's currency (`CURRENCY`); the screenshots and the video use euros.
 2. **One door for the agent.** The agent never sees payment details. It gets one MCP tool that spends,
