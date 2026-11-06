@@ -315,7 +315,8 @@ export function Insights({ rows, currency }: { rows: Purchase[]; currency: strin
     const text = { format: 'textFormat' } as const;
     const count = { format: 'integerFormat' } as const;
     const fields = [
-      { id: 'time', name: 'Time', format: 'dateTimeFormat' },
+      // The same date format as the rest of the dashboard ("Nov 6, 08:53 AM").
+      { id: 'time', name: 'Time', format: 'dateTimeFormat', formatOptions: { format: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) } },
       { id: 'agent', name: 'Agent', ...text },
       { id: 'merchant', name: 'Merchant', ...text },
       { id: 'category', name: 'Category', ...text },

@@ -482,8 +482,8 @@ export class Wallet {
   // Budget
 
   private weekCommittedCents(): number {
-    const { paidCents, heldCents } = this.options.store.committedSince(weekStart(this.now()).toISOString(), this.options.currency);
-    return paidCents + heldCents;
+    const { paidCents, heldCents, processingCents } = this.options.store.committedSince(weekStart(this.now()).toISOString(), this.options.currency);
+    return paidCents + heldCents + processingCents;
   }
 
   budget(): BudgetSummary {
@@ -491,7 +491,8 @@ export class Wallet {
     const start = weekStart(this.now());
     const end = new Date(start);
     end.setDate(end.getDate() + 7);
-    const { paidCents, heldCents } = store.committedSince(start.toISOString(), currency);
+    // A purchase still on its way to PayPal counts against the budget, but it is not "held by PayPal" yet.
+    const { paidCents, heldCents, processingCents } = store.committedSince(start.toISOString(), currency);
     const weekly = store.activeRules()?.rules.weeklyBudget ?? null;
     const weeklyBudgetCents = weekly === null ? null : toCents(weekly);
     return {
@@ -501,7 +502,7 @@ export class Wallet {
       weeklyBudgetCents,
       paidCents,
       heldCents,
-      leftCents: weeklyBudgetCents === null ? null : weeklyBudgetCents - paidCents - heldCents,
+      leftCents: weeklyBudgetCents === null ? null : weeklyBudgetCents - paidCents - heldCents - processingCents,
       waitingCount: store.countByStatus('on_hold'),
       blockedThisWeek: store.countSince(start.toISOString(), 'blocked'),
     };

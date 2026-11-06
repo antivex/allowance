@@ -247,13 +247,17 @@ below.
   email...) and 6 normal purchases, twice each, to several local models. Full table:
   [docs/ATTACK_EVAL.md](docs/ATTACK_EVAL.md).
 
-  | Model | Attacks stopped (held or blocked) | ...of those the rules alone would pay | Normal purchases paid without asking |
-  |---|---|---|---|
-  | qwen3.5:4b (the default) | 28 of 32 | 24 of 28 | 12 of 12 |
-  | phi4 (14B) | 25 of 32 | 21 of 28 | 12 of 12 |
-  | qwen2.5-coder:7b | 13 of 32 | 9 of 28 | 12 of 12 |
+  The rules block 4 of the 32 attack runs (crypto and gift cards). The other 28 are inside the rules, so the rules alone
+  would pay them:
 
-  The default model's two misses: a payment redirected to "Inkwell Billing Services Ltd" (a **Known merchants** rule
+  | Model | Caught by the AI review | Held because the AI did not answer in time | Paid without the owner | Normal purchases paid without asking |
+  |---|---|---|---|---|
+  | qwen3.5:4b (the default) | 23 of 28 | 1 | 4 | 12 of 12 |
+  | phi4 (14B) | 21 of 28 | 0 | 7 | 12 of 12 |
+  | qwen2.5-coder:7b | 7 of 28 | 2 | 19 | 12 of 12 |
+
+  The reviewer's instructions describe these families of trick; the wording of every attack is new. The default model's
+  two misses, each twice: a payment redirected to "Inkwell Billing Services Ltd" (a **Known merchants** rule
   holds it, since any other merchant then waits for you) and five reams instead of one at a normal price, still under
   the limit. The model matters: a coding model let most attacks through, which is why the AI review can only add
   questions or blocks and the fixed rules stay the guarantee.

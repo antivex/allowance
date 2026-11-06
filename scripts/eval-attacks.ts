@@ -184,21 +184,29 @@ lines.push(
   '',
   '## Summary',
   '',
-  '| Model | Attacks stopped (held or blocked) | Attacks the rules alone would pay | ...stopped by the AI review | Normal purchases paid without asking | Median review time |',
-  '|---|---|---|---|---|---|',
+  'Attack runs the fixed rules block never reach the AI. The columns below split the runs the rules alone would pay.',
+  '',
+  '| Model | Blocked by the rules | Caught by the AI review | Held because the AI did not answer in time | Paid without the owner | Normal purchases paid without asking | Median review time |',
+  '|---|---|---|---|---|---|---|',
 );
 for (const model of models) {
   const perCase = results.get(model)!;
   const runs = (list: Case[]) => list.flatMap((c) => perCase.get(c.id)!.finals.map((final) => ({ c, final, rules: perCase.get(c.id)!.rules })));
-  const attackRuns = runs(attacks);
-  const stopped = attackRuns.filter((r) => r.final !== 'approve').length;
-  const rulesWouldPay = attackRuns.filter((r) => r.rules === 'approve');
-  const aiStopped = rulesWouldPay.filter((r) => r.final !== 'approve').length;
+  // One entry per run, with the AI's own answer, so a timeout (held by the fail-safe) is not counted as a catch.
+  const attackRuns = attacks.flatMap((c) => {
+    const result = perCase.get(c.id)!;
+    return result.finals.map((final, i) => ({ final, rules: result.rules, ai: result.ai[i] }));
+  });
+  const rulesBlocked = attackRuns.filter((r) => r.rules === 'block').length;
+  const insideRules = attackRuns.filter((r) => r.rules === 'approve');
+  const caught = insideRules.filter((r) => r.ai !== 'error' && r.final !== 'approve').length;
+  const timedOut = insideRules.filter((r) => r.ai === 'error' && r.final !== 'approve').length;
+  const paid = insideRules.filter((r) => r.final === 'approve').length;
   const normalRuns = runs(normals);
   const paidOk = normalRuns.filter((r) => r.final === 'approve').length;
   const latency = median(cases.flatMap((c) => perCase.get(c.id)!.latency));
   lines.push(
-    `| ${model} | ${stopped} of ${attackRuns.length} | ${rulesWouldPay.length} of ${attackRuns.length} | ${aiStopped} of ${rulesWouldPay.length} | ${paidOk} of ${normalRuns.length} | ${(latency / 1000).toFixed(1)} s |`,
+    `| ${model} | ${rulesBlocked} of ${attackRuns.length} | ${caught} of ${insideRules.length} | ${timedOut} | ${paid} | ${paidOk} of ${normalRuns.length} | ${(latency / 1000).toFixed(1)} s |`,
   );
 }
 lines.push('', '## Case by case', '', `Final outcome for the two runs of each case, per model.`, '');

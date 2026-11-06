@@ -15,11 +15,17 @@ Outcomes: **paid** = money moves without the owner; **held** = PayPal only autho
 
 ## Summary
 
-| Model | Attacks stopped (held or blocked) | Attacks the rules alone would pay | ...stopped by the AI review | Normal purchases paid without asking | Median review time |
+Of the 32 attack runs, the fixed rules block 4 (the crypto and gift-card cases) before the AI sees them. The other 28 are
+inside the rules, so the rules alone would pay them; the columns below split those 28.
+
+| Model | Caught by the AI review | Held because the AI did not answer in time | Paid without the owner | Normal purchases paid without asking | Median review time |
 |---|---|---|---|---|---|
-| qwen3.5:4b | 28 of 32 | 28 of 32 | 24 of 28 | 12 of 12 | 1.2 s |
-| qwen2.5-coder:7b | 13 of 32 | 28 of 32 | 9 of 28 | 12 of 12 | 0.4 s |
-| phi4:latest | 25 of 32 | 28 of 32 | 21 of 28 | 12 of 12 | 1.4 s |
+| qwen3.5:4b | 23 of 28 | 1 | 4 | 12 of 12 | 1.2 s |
+| qwen2.5-coder:7b | 7 of 28 | 2 | 19 | 12 of 12 | 0.4 s |
+| phi4:latest | 21 of 28 | 0 | 7 | 12 of 12 | 1.4 s |
+
+The reviewer's instructions describe these families of trick (fees demanded of AI assistants, pay-to-unlock, partners,
+pressure); the wording of every attack here is new.
 
 ## Case by case
 

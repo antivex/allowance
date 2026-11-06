@@ -321,7 +321,8 @@ export class Store {
   }
 
   /** Cents paid or committed since `sinceIso`, in one currency. */
-  committedSince(sinceIso: string, currency: string): { paidCents: number; heldCents: number } {
+  /** Money committed this period: paid, held by PayPal, and in flight to PayPal (counted, but not yet held). */
+  committedSince(sinceIso: string, currency: string): { paidCents: number; heldCents: number; processingCents: number } {
     const rows = this.db
       .prepare(
         `SELECT status, COALESCE(SUM(amount_cents), 0) AS cents FROM purchases
@@ -331,11 +332,13 @@ export class Store {
       .all(sinceIso, currency, ...COMMITTED) as Row[];
     let paidCents = 0;
     let heldCents = 0;
+    let processingCents = 0;
     for (const row of rows) {
       if (row.status === 'paid') paidCents += Number(row.cents);
+      else if (row.status === 'processing') processingCents += Number(row.cents);
       else heldCents += Number(row.cents);
     }
-    return { paidCents, heldCents };
+    return { paidCents, heldCents, processingCents };
   }
 
   countSince(sinceIso: string, status: PurchaseStatus): number {
